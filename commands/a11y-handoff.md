@@ -10,28 +10,36 @@ Read the repository https://github.com/saralobo/acessibility-handoff-1.0 startin
 
 ## STEP 0: STUDY REFERENCE
 
-**Before starting**, study the reference screenshots in `examples/reference/` (or download them per `examples/reference/README.md`):
-- `full-handoff.png` — Complete layout with template, sidebar, and annotated screen
-- `screen-annotations.png` — Close-up: highlights, badges (24x24 circles), label cards on right
+**Before starting**, understand the expected visual output:
 
-This is what the final output MUST look like. Pay attention to badge proportions (perfect circles), highlight sizing (wrapping components, not full-width bands), and card placement (right side only).
+1. **If your tool can view images:** Open the PNG screenshots in `examples/reference/`:
+   - `full-handoff.png` — Complete layout with template, sidebar, and annotated screen
+   - `screen-annotations.png` — Close-up: highlights, badges (24x24 circles), label cards on right
+
+2. **If your tool cannot view images (or PNGs are not available):** Read `examples/reference/README.md` — it contains **detailed ASCII diagrams and text descriptions** of exactly what the correct output looks like. This works in any AI tool.
+
+**Key rules to memorize:**
+- Badge circles: 24x24 pixels, perfect circles, never stretched
+- Highlights: stroke-only, wrap individual components (not full-width bands)
+- Label cards: ALL on the RIGHT side, 18px gap between cards
+- NO connecting lines — labels match components by number only
+- Colors: green (Button), blue (Label), purple (H), red dashed (Group), gray 30% (Ignore)
 
 ## STEP 1: ANALYZE
 
 1. **Screenshot** the target screen via `figma_take_screenshot`
-2. **Compare** your screenshot with the reference PNGs to understand expected output
-3. **Identify** every element and classify it:
+2. **Identify** every element and classify it:
    - Interactive (button, link, toggle) -> `Button` tag (green)
    - Text content, descriptions -> `Label` tag (blue)
    - Headings, section titles -> `H` tag (purple)
    - Group of related items -> `Group` outline (red dashed)
    - Decorative, no semantic meaning -> `Ignore` overlay (gray)
-4. **Define reading order** (context before action, main content first)
-5. **Estimate targetBounds** for each component — proportions 0.0 to 1.0 relative to the device frame:
+3. **Define reading order** (context before action, main content first)
+4. **Estimate targetBounds** for each component — proportions 0.0 to 1.0 relative to the device frame:
    - `x`: left edge, `y`: top edge, `width`: component width, `height`: component height
    - Example: title at top center -> `{ "x": 0.25, "y": 0.05, "width": 0.5, "height": 0.04 }`
    - **Without targetBounds, highlights will NOT be created and verify will fail.**
-6. **Generate JSON** matching `schema/handoff-data.schema.json`
+5. **Generate JSON** matching `schema/handoff-data.schema.json`
    - See `examples/payment-screen.json` for reference with targetBounds
 
 ## STEP 2: BUILD
@@ -56,7 +64,7 @@ This is what the final output MUST look like. Pay attention to badge proportions
 3. **NEVER** omit targetBounds — highlights and badges need accurate positions.
 4. **NEVER** create connecting lines (no lines in v2.3).
 5. **NEVER** say "looks good" before verify-handoff.js returns all PASS.
-6. **ALWAYS** study the reference PNGs before building.
+6. **ALWAYS** study the visual reference (PNGs or text description) before building.
 7. **ALWAYS** post the verification report to the user.
 
 ## JSON SCHEMA (summary)
