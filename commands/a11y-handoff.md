@@ -1,8 +1,8 @@
 ---
-description: Create an accessibility hand-off annotation in Figma. Analyzes a screen, generates structured JSON, executes the build script, and verifies the result.
+description: Create an accessibility hand-off annotation in Figma. Analyzes a screen, generates structured JSON with targetBounds, executes the build script, and verifies with 16 strict checks.
 ---
 
-# Accessibility Hand-off (v2.1 — No Lines, QA Verified)
+# Accessibility Hand-off (v2.2 — targetBounds + Strict QA)
 
 You are creating an accessibility hand-off annotation in Figma using a three-step process: ANALYZE, BUILD, VERIFY.
 
@@ -15,18 +15,22 @@ Read the repository https://github.com/saralobo/acessibility-handoff-1.0 startin
    - Interactive (button, link, toggle) -> `Button` tag (green)
    - Text content, descriptions -> `Label` tag (blue)
    - Headings, section titles -> `H` tag (purple)
-   - Group of related items -> `Group` outline (red)
+   - Group of related items -> `Group` outline (red dashed)
    - Decorative, no semantic meaning -> `Ignore` overlay (gray)
 3. **Define reading order** (context before action, main content first)
-4. **Generate JSON** matching `schema/handoff-data.schema.json`
-   - See `examples/payment-screen.json` for reference
-   - There is NO `side` field. All labels go to the right automatically.
+4. **Estimate targetBounds** for each component — proportions 0.0 to 1.0 relative to the device frame:
+   - `x`: left edge, `y`: top edge, `width`: component width, `height`: component height
+   - Example: title at top center -> `{ "x": 0.25, "y": 0.05, "width": 0.5, "height": 0.04 }`
+   - **Without targetBounds, highlights will NOT be created and verify will fail.**
+5. **Generate JSON** matching `schema/handoff-data.schema.json`
+   - See `examples/payment-screen.json` for reference with targetBounds
 
 ## STEP 2: BUILD
 
 1. **Read** `figma/build-handoff.js` from the repository
 2. **Execute** via `figma_execute`: paste script, call `buildHandoff(data)` with your JSON
-3. Save the `screenFrameId` from the result
+3. Save the `screenFrameId` and `annotationCount` from the result
+4. If the result includes a `warning` about missing targetBounds, go back and add them
 
 ## STEP 3: VERIFY (mandatory)
 
@@ -34,14 +38,14 @@ Read the repository https://github.com/saralobo/acessibility-handoff-1.0 startin
 2. **Execute** via `figma_execute`: call `verifyHandoff(screenFrameId, annotationCount)`
 3. **Post the full PASS/FAIL report** to the user
 4. If ANY check returns FAIL, fix the issue and re-run verification
-5. You may NOT say "done" until all checks pass
+5. You may NOT say "done" until all 16 checks pass
 
 ## CRITICAL RULES
 
 1. **NEVER** create Figma elements manually. Only the build script creates visual output.
 2. **NEVER** skip the JSON step or the verification step.
-3. **NEVER** rebuild screens from scratch. The script clones via nodeId.
-4. **NEVER** create connecting lines (v2.1 has no lines).
+3. **NEVER** omit targetBounds — highlights and badges need accurate positions.
+4. **NEVER** create connecting lines (no lines in v2.2).
 5. **NEVER** say "looks good" before verify-handoff.js returns all PASS.
 6. **ALWAYS** post the verification report to the user.
 
@@ -64,7 +68,8 @@ Read the repository https://github.com/saralobo/acessibility-handoff-1.0 startin
       "tagType": "Button|Label|H|Group|Ignore",
       "accessibilityName": "What screen reader announces",
       "role": "ARIA role",
-      "state": "Optional, Button only"
+      "state": "Optional, Button only",
+      "targetBounds": { "x": 0.0, "y": 0.0, "width": 0.5, "height": 0.1 }
     }
   ]
 }

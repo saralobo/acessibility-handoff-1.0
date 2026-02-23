@@ -17,14 +17,16 @@
       "componentName": "Screen title",
       "tagType": "H",
       "accessibilityName": "\"Payments\"",
-      "role": "heading"
+      "role": "heading",
+      "targetBounds": { "x": 0.25, "y": 0.05, "width": 0.50, "height": 0.04 }
     },
     {
       "order": 2,
       "componentName": "Section label",
       "tagType": "Label",
       "accessibilityName": "\"Credit card\"",
-      "role": "text"
+      "role": "text",
+      "targetBounds": { "x": 0.05, "y": 0.12, "width": 0.40, "height": 0.03 }
     },
     {
       "order": 3,
@@ -32,29 +34,33 @@
       "tagType": "Button",
       "accessibilityName": "\"All tools\"",
       "role": "button",
-      "state": "ACTION: Open menu"
+      "state": "ACTION: Open menu",
+      "targetBounds": { "x": 0.02, "y": 0.05, "width": 0.10, "height": 0.04 }
     },
     {
       "order": 4,
       "componentName": "Settings button",
       "tagType": "Button",
-      "accessibilityName": "\"All tools\"",
+      "accessibilityName": "\"Settings\"",
       "role": "button",
-      "state": "ACTION: Open settings"
+      "state": "ACTION: Open settings",
+      "targetBounds": { "x": 0.88, "y": 0.05, "width": 0.10, "height": 0.04 }
     },
     {
       "order": 5,
       "componentName": "Card 1",
       "tagType": "Label",
       "accessibilityName": "\"Card 1\"",
-      "role": "text"
+      "role": "text",
+      "targetBounds": { "x": 0.05, "y": 0.17, "width": 0.90, "height": 0.12 }
     },
     {
       "order": 6,
       "componentName": "Card 2",
       "tagType": "Label",
       "accessibilityName": "\"Card 2\"",
-      "role": "text"
+      "role": "text",
+      "targetBounds": { "x": 0.05, "y": 0.31, "width": 0.90, "height": 0.12 }
     },
     {
       "order": 7,
@@ -62,14 +68,16 @@
       "tagType": "Button",
       "accessibilityName": "\"Add new card\"",
       "role": "button",
-      "state": "ACTION: Add card"
+      "state": "ACTION: Add card",
+      "targetBounds": { "x": 0.05, "y": 0.45, "width": 0.90, "height": 0.06 }
     },
     {
       "order": 0,
       "componentName": "Status bar icons",
       "tagType": "Ignore",
       "accessibilityName": "Decorative",
-      "role": "none"
+      "role": "none",
+      "targetBounds": { "x": 0.60, "y": 0.0, "width": 0.38, "height": 0.03 }
     }
   ]
 }

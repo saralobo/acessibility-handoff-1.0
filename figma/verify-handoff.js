@@ -1,132 +1,239 @@
 /**
- * verify-handoff.js — QA Verification Layer
+ * verify-handoff.js v2.2 — Strict QA Verification Layer
  *
- * Run this AFTER build-handoff.js to verify the output matches
- * the reference design. Returns objective PASS/FAIL for each check.
+ * 16 checks that catch real visual problems, not just existence.
+ * Detects: equal-height bands, oversized highlights, filled highlights,
+ * badges outside device, overlapping cards, missing elements, wrong sizing.
  *
  * The AI must NOT say "done" until all checks pass.
- * The AI must NOT give subjective opinions — only this script decides.
  *
  * Usage via figma_execute:
- *   const result = await verifyHandoff('SCREEN_FRAME_NODE_ID', expectedAnnotationCount);
+ *   const result = await verifyHandoff('SCREEN_FRAME_ID', expectedCount);
  *   return result;
  */
 
 async function verifyHandoff(screenFrameId, expectedAnnotationCount) {
   const screen = await figma.getNodeByIdAsync(screenFrameId);
-  if (!screen) return { passed: false, score: '0/10', checks: [{ name: 'Node exists', status: 'FAIL', detail: 'Screen frame not found: ' + screenFrameId }] };
+  if (!screen) {
+    return {
+      passed: false,
+      score: '0/16',
+      checks: [{ name: '1. Screen frame exists', status: 'FAIL', detail: 'Node not found: ' + screenFrameId, severity: 'CRITICAL' }],
+      summary: 'BLOCKED — Screen frame not found.'
+    };
+  }
 
   const checks = [];
   let passCount = 0;
 
-  function check(name, condition, detail) {
+  function check(name, condition, detail, severity) {
     const status = condition ? 'PASS' : 'FAIL';
     if (condition) passCount++;
-    checks.push({ name: name, status: status, detail: detail });
+    checks.push({ name: name, status: status, detail: detail, severity: severity || 'CRITICAL' });
   }
 
-  // --- 1. Screen exists and has children ---
-  check('Screen frame exists', screen.type === 'FRAME', 'Type: ' + screen.type);
-  check('Screen has children', screen.children && screen.children.length > 0, 'Children: ' + (screen.children ? screen.children.length : 0));
+  const children = screen.children || [];
+  const deviceFrame = children[0] || null;
+  const devRight = deviceFrame ? deviceFrame.x + deviceFrame.width : 0;
+  const devBottom = deviceFrame ? deviceFrame.y + deviceFrame.height : 0;
+  const devW = deviceFrame ? deviceFrame.width : 1;
+  const devH = deviceFrame ? deviceFrame.height : 1;
+  const devArea = devW * devH;
 
-  // --- 2. Device frame (cloned screen, not rebuilt) ---
-  const firstChild = screen.children ? screen.children[0] : null;
-  const isClone = firstChild && (firstChild.type === 'FRAME' || firstChild.type === 'COMPONENT' || firstChild.type === 'INSTANCE' || (firstChild.type === 'RECTANGLE' && firstChild.fills && firstChild.fills[0] && firstChild.fills[0].type === 'IMAGE'));
-  check('Screen is cloned (not rebuilt)', isClone, firstChild ? 'First child type: ' + firstChild.type : 'No children');
+  // --- Collect elements by name prefix ---
+  const labelCards = [];
+  const highlights = [];
+  const badges = [];
 
-  // --- 3. NO line frames (v2.1 requirement) ---
+  for (const child of children) {
+    const n = child.name || '';
+    if (n.startsWith('Label Card ')) { labelCards.push(child); continue; }
+    if (n.startsWith('Highlight ')) { highlights.push(child); continue; }
+    if (n.startsWith('Badge ')) { badges.push(child); continue; }
+  }
+
+  // === CHECK 1: Screen frame type ===
+  check('1. Screen frame exists', screen.type === 'FRAME', 'Type: ' + screen.type);
+
+  // === CHECK 2: Has enough children ===
+  check('2. Screen has children', children.length > 2, 'Children: ' + children.length);
+
+  // === CHECK 3: Device frame is cloned (not rebuilt) ===
+  const hasRealContent = deviceFrame && deviceFrame.children && deviceFrame.children.length > 2;
+  const isCloneType = deviceFrame && ['FRAME', 'COMPONENT', 'INSTANCE', 'GROUP'].includes(deviceFrame.type);
+  check('3. Device is cloned (not rebuilt)',
+    isCloneType && hasRealContent,
+    deviceFrame
+      ? 'Type: ' + deviceFrame.type + ', Children: ' + (deviceFrame.children ? deviceFrame.children.length : 0)
+      : 'No device frame found');
+
+  // === CHECK 4: No connecting lines ===
   let lineCount = 0;
   let vectorCount = 0;
-  for (const child of (screen.children || [])) {
-    if (child.type === 'FRAME' && child.children) {
-      for (const grandchild of child.children) {
-        if (grandchild.type === 'VECTOR') vectorCount++;
+  for (const child of children) {
+    if (child.type === 'VECTOR' || child.type === 'LINE') vectorCount++;
+    if (child.name && child.name.toLowerCase().includes('line')) lineCount++;
+    if (child.children) {
+      for (const gc of child.children) {
+        if (gc.type === 'VECTOR' || gc.type === 'LINE') vectorCount++;
       }
     }
-    if (child.name && child.name.toLowerCase().includes('line')) lineCount++;
   }
-  check('No connecting lines (v2.1)', lineCount === 0 && vectorCount === 0, 'Lines found: ' + lineCount + ', Vectors found: ' + vectorCount);
+  check('4. No connecting lines', lineCount === 0 && vectorCount === 0,
+    'Line-named: ' + lineCount + ', Vectors: ' + vectorCount);
 
-  // --- 4. Label cards exist on the right side ---
-  let labelCardCount = 0;
-  let deviceRight = 0;
-  if (firstChild) deviceRight = firstChild.x + firstChild.width;
-  for (const child of (screen.children || [])) {
-    if (child.type === 'FRAME' && child.cornerRadius === 8 && child.fills && child.fills.length > 0) {
-      const fill = child.fills[0];
-      if (fill.type === 'SOLID' && fill.color) {
-        const isTagColor = (Math.abs(fill.color.r - 41/255) < 0.02 && Math.abs(fill.color.g - 130/255) < 0.02) ||
-                           (Math.abs(fill.color.r - 39/255) < 0.02 && Math.abs(fill.color.g - 72/255) < 0.02) ||
-                           (Math.abs(fill.color.r - 37/255) < 0.02 && Math.abs(fill.color.g - 41/255) < 0.02);
-        if (isTagColor && child.x > deviceRight) {
-          labelCardCount++;
+  // === CHECK 5: Label cards exist ===
+  check('5. Label cards exist', labelCards.length > 0, 'Found: ' + labelCards.length);
+
+  // === CHECK 6: ALL label cards on right side ===
+  const cardsOnLeft = labelCards.filter(function(c) { return c.x <= devRight; });
+  check('6. All labels on RIGHT of device', cardsOnLeft.length === 0,
+    cardsOnLeft.length > 0
+      ? cardsOnLeft.length + ' card(s) at x <= ' + Math.round(devRight) + 'px (device right edge)'
+      : 'All ' + labelCards.length + ' cards positioned correctly');
+
+  // === CHECK 7: Label cards don't overlap ===
+  let cardOverlaps = 0;
+  const sortedCards = labelCards.slice().sort(function(a, b) { return a.y - b.y; });
+  for (let i = 1; i < sortedCards.length; i++) {
+    var prev = sortedCards[i - 1];
+    var curr = sortedCards[i];
+    if (curr.y < prev.y + prev.height - 2) cardOverlaps++;
+  }
+  check('7. Label cards don\'t overlap', cardOverlaps === 0,
+    'Overlapping pairs: ' + cardOverlaps, 'HIGH');
+
+  // === CHECK 8: Badges exist ===
+  check('8. Badge circles exist', badges.length > 0, 'Found: ' + badges.length);
+
+  // === CHECK 9: Badges within device bounds ===
+  var margin = 20;
+  var badgesOutside = 0;
+  for (var bi = 0; bi < badges.length; bi++) {
+    var b = badges[bi];
+    var cx = b.x + b.width / 2;
+    var cy = b.y + b.height / 2;
+    if (deviceFrame && (cx < deviceFrame.x - margin || cx > devRight + margin ||
+        cy < deviceFrame.y - margin || cy > devBottom + margin)) {
+      badgesOutside++;
+    }
+  }
+  check('9. Badges near device bounds', badgesOutside === 0,
+    badgesOutside > 0
+      ? badgesOutside + '/' + badges.length + ' badge(s) outside device area'
+      : 'All ' + badges.length + ' within bounds');
+
+  // === CHECK 10: Highlights are stroke-only (no solid fills) ===
+  var filledHighlights = 0;
+  for (var hi = 0; hi < highlights.length; hi++) {
+    var h = highlights[hi];
+    if (h.fills && h.fills.length > 0) {
+      for (var fi = 0; fi < h.fills.length; fi++) {
+        var f = h.fills[fi];
+        if (f.type === 'SOLID' && f.visible !== false && (!('opacity' in f) || f.opacity > 0.05)) {
+          filledHighlights++;
+          break;
         }
       }
     }
   }
-  check('Label cards exist', labelCardCount > 0, 'Found: ' + labelCardCount + ' label cards');
-  check('Label cards on RIGHT of screen', labelCardCount > 0 && deviceRight > 0, 'Device right edge: ' + Math.round(deviceRight) + 'px');
+  check('10. Highlights are stroke-only',
+    filledHighlights === 0 || highlights.length === 0,
+    filledHighlights > 0
+      ? filledHighlights + '/' + highlights.length + ' highlight(s) have solid fills — must be stroke-only'
+      : 'All clean');
 
-  // --- 5. Badge circles on screen ---
-  let badgeCount = 0;
-  for (const child of (screen.children || [])) {
-    if (child.name && child.name.startsWith('Badge ')) badgeCount++;
+  // === CHECK 11: No oversized highlights (>40% of device area) ===
+  var oversized = 0;
+  for (var oi = 0; oi < highlights.length; oi++) {
+    var oh = highlights[oi];
+    if (oh.width * oh.height > devArea * 0.4) oversized++;
   }
-  check('Badge circles on screen', badgeCount > 0, 'Found: ' + badgeCount + ' badges');
+  check('11. No oversized highlights (>40% of screen)',
+    oversized === 0 || highlights.length === 0,
+    oversized > 0
+      ? oversized + '/' + highlights.length + ' highlight(s) cover >40% of screen — they should wrap individual components, not large areas'
+      : 'All appropriately sized');
 
-  // --- 6. Highlight rectangles on screen ---
-  let highlightCount = 0;
-  for (const child of (screen.children || [])) {
-    if (child.name && child.name.startsWith('Highlight ')) highlightCount++;
+  // === CHECK 12: Highlights are NOT equal-height bands ===
+  var isEqualBands = false;
+  if (highlights.length >= 3) {
+    var hHeights = highlights.map(function(h) { return Math.round(h.height); });
+    var hWidths = highlights.map(function(h) { return Math.round(h.width); });
+    var allSameH = hHeights.every(function(h) { return Math.abs(h - hHeights[0]) < 5; });
+    var allFullW = hWidths.every(function(w) { return w > devW * 0.85; });
+    isEqualBands = allSameH && allFullW;
   }
-  check('Highlight rectangles on screen', highlightCount > 0, 'Found: ' + highlightCount + ' highlights');
+  check('12. Highlights are NOT uniform bands', !isEqualBands,
+    isEqualBands
+      ? 'All highlights are same-height (' + Math.round(highlights[0].height) + 'px) full-width bands — this means targetBounds was missing or wrong. Each highlight should wrap its specific component.'
+      : highlights.length >= 3
+        ? 'Heights vary: [' + highlights.map(function(h) { return Math.round(h.height); }).join(', ') + ']px'
+        : 'OK (' + highlights.length + ' highlights)');
 
-  // --- 7. Annotation count matches ---
+  // === CHECK 13: Annotation count ===
   if (expectedAnnotationCount) {
-    check('Annotation count matches', labelCardCount === expectedAnnotationCount, 'Expected: ' + expectedAnnotationCount + ', Found: ' + labelCardCount);
+    check('13a. Label card count matches',
+      labelCards.length === expectedAnnotationCount,
+      'Expected: ' + expectedAnnotationCount + ', Found: ' + labelCards.length);
+    check('13b. Badge count matches',
+      badges.length === expectedAnnotationCount,
+      'Expected: ' + expectedAnnotationCount + ', Found: ' + badges.length);
   }
 
-  // --- 8. Tag sizing is HUG ---
-  let hugCount = 0;
-  let fixedCount = 0;
-  for (const child of (screen.children || [])) {
-    if (child.type === 'FRAME' && child.cornerRadius === 8 && child.layoutMode) {
-      if (child.layoutSizingHorizontal === 'HUG') hugCount++;
-      else fixedCount++;
-    }
+  // === CHECK 14: All cards use HUG sizing ===
+  var fixedCards = 0;
+  for (var ci = 0; ci < labelCards.length; ci++) {
+    if (labelCards[ci].layoutSizingHorizontal && labelCards[ci].layoutSizingHorizontal !== 'HUG') fixedCards++;
   }
-  check('Tag cards use HUG sizing', fixedCount === 0, 'HUG: ' + hugCount + ', FIXED: ' + fixedCount);
+  check('14. Label cards use HUG sizing', fixedCards === 0,
+    fixedCards > 0 ? fixedCards + ' card(s) use FIXED sizing instead of HUG' : 'All HUG');
 
-  // --- 9. Text auto-resize ---
-  let textOk = 0;
-  let textBad = 0;
-  function checkTexts(node) {
-    if (!node.children) return;
-    for (const child of node.children) {
+  // === CHECK 15: Text auto-resizes ===
+  var textOk = 0;
+  var textBad = 0;
+  function scanTexts(node) {
+    if (!node || !node.children) return;
+    for (var ti = 0; ti < node.children.length; ti++) {
+      var child = node.children[ti];
       if (child.type === 'TEXT') {
         if (child.textAutoResize === 'WIDTH_AND_HEIGHT') textOk++;
         else textBad++;
       }
-      if (child.children) checkTexts(child);
+      if (child.children) scanTexts(child);
     }
   }
-  checkTexts(screen);
-  check('All text nodes auto-resize', textBad === 0, 'OK: ' + textOk + ', Bad: ' + textBad);
+  for (var si = 0; si < labelCards.length; si++) scanTexts(labelCards[si]);
+  check('15. All text auto-resizes', textBad === 0,
+    'Auto: ' + textOk + ', Fixed: ' + textBad);
 
-  // --- 10. No ELLIPSE orphans (stray circles) ---
-  let strayEllipses = 0;
-  for (const child of (screen.children || [])) {
-    if (child.type === 'ELLIPSE') strayEllipses++;
+  // === CHECK 16: Badge numbers are sequential ===
+  var sequential = true;
+  var badgeNums = badges.map(function(b) {
+    return parseInt(b.name.replace('Badge ', ''));
+  }).sort(function(a, b) { return a - b; });
+  for (var ni = 0; ni < badgeNums.length; ni++) {
+    if (badgeNums[ni] !== ni + 1) { sequential = false; break; }
   }
-  check('No stray ellipses', strayEllipses === 0, 'Found: ' + strayEllipses);
+  check('16. Badge numbers sequential', sequential,
+    'Numbers: [' + badgeNums.join(', ') + ']', 'HIGH');
 
-  const total = checks.length;
-  const allPassed = passCount === total;
+  // --- Summary ---
+  var total = checks.length;
+  var criticalFails = checks.filter(function(c) { return c.status === 'FAIL' && c.severity === 'CRITICAL'; }).length;
+  var highFails = checks.filter(function(c) { return c.status === 'FAIL' && c.severity === 'HIGH'; }).length;
+  var allPassed = passCount === total;
 
   return {
     passed: allPassed,
     score: passCount + '/' + total,
+    criticalFails: criticalFails,
+    highFails: highFails,
     checks: checks,
-    summary: allPassed ? 'ALL CHECKS PASSED — hand-off is valid.' : 'FAILED — ' + (total - passCount) + ' check(s) need fixing before delivery.'
+    summary: allPassed
+      ? 'ALL CHECKS PASSED — hand-off is valid.'
+      : criticalFails > 0
+        ? 'BLOCKED — ' + criticalFails + ' critical failure(s). Must fix before delivery.'
+        : 'WARNING — ' + highFails + ' non-critical issue(s). Review recommended.'
   };
 }

@@ -1,14 +1,11 @@
 /**
- * build-handoff.js v2.1 — Deterministic Handoff Builder (No Lines)
+ * build-handoff.js v2.2 — Deterministic Handoff Builder
  *
- * Creates accessibility hand-off annotations in Figma.
- *
- * v2.1 design:
- *   - NO lines connecting tags to components
- *   - Label cards always stacked on the RIGHT side of the screen
- *   - Numbered badge circles placed ON each component on the screen
- *   - Colored highlight rectangles around components on the screen
- *   - Hatched gray overlay for Ignore areas
+ * v2.2 changes:
+ *   - Uses targetBounds (proportional 0.0-1.0) for accurate highlight/badge placement
+ *   - Skips highlights when targetBounds is missing (no more guessed bands)
+ *   - Fixed badge in label card: round frame with centered number
+ *   - Ignore/Group overlays also use targetBounds
  *
  * The AI produces JSON (schema/handoff-data.schema.json).
  * This script consumes it. Same input = same output, always.
@@ -66,7 +63,6 @@ const TAG_SPEC = {
   nameFontSize: 10,
   labelCardGap: 18,
   badgeOnScreenSize: 22,
-  highlightPadding: 6,
   highlightStrokeWeight: 2,
   highlightCornerRadius: 8
 };
@@ -221,28 +217,39 @@ async function buildHandoff(data) {
   // --- 7. Filter annotations ---
   const numbered = data.annotations.filter(a => a.order > 0).sort((a, b) => a.order - b.order);
   const ignores = data.annotations.filter(a => a.tagType === 'Ignore');
+  const groups = data.annotations.filter(a => a.tagType === 'Group');
 
-  // --- 8. Place badge circles ON the screen + highlight rectangles ---
-  const badgePositions = [];
-  const rowHeight = Math.floor(devH / (numbered.length + 1));
+  // --- 8. Highlights + on-screen badges ---
+  let highlightsCreated = 0;
 
   for (let i = 0; i < numbered.length; i++) {
     const ann = numbered[i];
     const color = TAG_COLORS[ann.tagType] || TAG_COLORS.Label;
-    const posY = devY + rowHeight * (i + 1) - S.badgeOnScreenSize / 2;
 
-    // Highlight rectangle around estimated component area
-    if (ann.tagType !== 'Group') {
+    let hx, hy, hw, hh;
+    let hasBounds = false;
+
+    if (ann.targetBounds) {
+      hx = devX + Math.round(ann.targetBounds.x * devW);
+      hy = devY + Math.round(ann.targetBounds.y * devH);
+      hw = Math.max(Math.round(ann.targetBounds.width * devW), 20);
+      hh = Math.max(Math.round(ann.targetBounds.height * devH), 16);
+      hasBounds = true;
+    }
+
+    // Highlight — only created when targetBounds is provided
+    if (hasBounds) {
       const highlight = figma.createFrame();
       highlight.name = 'Highlight ' + ann.order;
       highlight.fills = [];
       highlight.strokes = [{ type: 'SOLID', color: color }];
       highlight.strokeWeight = S.highlightStrokeWeight;
       highlight.cornerRadius = S.highlightCornerRadius;
-      highlight.resize(devW - S.highlightPadding * 2, rowHeight - 8);
-      highlight.x = devX + S.highlightPadding;
-      highlight.y = devY + rowHeight * i + 4;
+      highlight.resize(hw, hh);
+      highlight.x = hx;
+      highlight.y = hy;
       screenFrame.appendChild(highlight);
+      highlightsCreated++;
     }
 
     // Badge circle on screen
@@ -255,33 +262,63 @@ async function buildHandoff(data) {
     badgeGroup.counterAxisAlignItems = 'CENTER';
     badgeGroup.primaryAxisAlignItems = 'CENTER';
 
-    const badgeNumOnScreen = figma.createText();
-    badgeNumOnScreen.fontName = { family: 'Roboto', style: 'Bold' };
-    badgeNumOnScreen.characters = String(ann.order);
-    badgeNumOnScreen.fontSize = S.badgeFontSize;
-    badgeNumOnScreen.fills = [{ type: 'SOLID', color: T.white }];
-    badgeNumOnScreen.textAutoResize = 'WIDTH_AND_HEIGHT';
-    badgeGroup.appendChild(badgeNumOnScreen);
+    const badgeNum = figma.createText();
+    badgeNum.fontName = { family: 'Roboto', style: 'Bold' };
+    badgeNum.characters = String(ann.order);
+    badgeNum.fontSize = S.badgeFontSize;
+    badgeNum.fills = [{ type: 'SOLID', color: T.white }];
+    badgeNum.textAutoResize = 'WIDTH_AND_HEIGHT';
+    badgeGroup.appendChild(badgeNum);
 
-    badgeGroup.x = devX + devW - S.badgeOnScreenSize - 4;
-    badgeGroup.y = posY;
+    if (hasBounds) {
+      badgeGroup.x = hx + hw - Math.round(S.badgeOnScreenSize / 2);
+      badgeGroup.y = hy + hh - Math.round(S.badgeOnScreenSize / 2);
+    } else {
+      badgeGroup.x = devX + devW - S.badgeOnScreenSize - 4;
+      badgeGroup.y = devY + (S.badgeOnScreenSize + 8) * i;
+    }
     screenFrame.appendChild(badgeGroup);
-
-    badgePositions.push({ order: ann.order, y: posY });
   }
 
-  // --- 9. Ignore area overlays ---
+  // --- 9. Group outlines ---
+  for (const ann of groups) {
+    if (!ann.targetBounds) continue;
+    const gx = devX + Math.round(ann.targetBounds.x * devW);
+    const gy = devY + Math.round(ann.targetBounds.y * devH);
+    const gw = Math.max(Math.round(ann.targetBounds.width * devW), 20);
+    const gh = Math.max(Math.round(ann.targetBounds.height * devH), 16);
+
+    const groupRect = figma.createFrame();
+    groupRect.name = 'Group ' + (ann.componentName || '');
+    groupRect.fills = [];
+    groupRect.strokes = [{ type: 'SOLID', color: TAG_COLORS.Group }];
+    groupRect.strokeWeight = 2;
+    groupRect.dashPattern = [6, 4];
+    groupRect.cornerRadius = 4;
+    groupRect.resize(gw, gh);
+    groupRect.x = gx;
+    groupRect.y = gy;
+    screenFrame.appendChild(groupRect);
+  }
+
+  // --- 10. Ignore area overlays ---
   for (const ann of ignores) {
+    if (!ann.targetBounds) continue;
+    const ix = devX + Math.round(ann.targetBounds.x * devW);
+    const iy = devY + Math.round(ann.targetBounds.y * devH);
+    const iw = Math.max(Math.round(ann.targetBounds.width * devW), 20);
+    const ih = Math.max(Math.round(ann.targetBounds.height * devH), 16);
+
     const ignoreRect = figma.createFrame();
     ignoreRect.name = 'Ignore Area';
     ignoreRect.fills = [{ type: 'SOLID', color: TAG_COLORS.Ignore, opacity: 0.3 }];
-    ignoreRect.resize(54, 49);
-    ignoreRect.x = devX + 36;
-    ignoreRect.y = devY + devH - 90;
+    ignoreRect.resize(iw, ih);
+    ignoreRect.x = ix;
+    ignoreRect.y = iy;
     screenFrame.appendChild(ignoreRect);
   }
 
-  // --- 10. Label cards on the RIGHT side ---
+  // --- 11. Label cards on the RIGHT side ---
   const labelStartX = devX + devW + 25;
   let labelY = devY;
 
@@ -289,7 +326,7 @@ async function buildHandoff(data) {
     const color = TAG_COLORS[ann.tagType] || TAG_COLORS.Label;
 
     const card = figma.createFrame();
-    card.name = ann.tagType + ' ' + ann.order;
+    card.name = 'Label Card ' + ann.order;
     card.layoutMode = 'HORIZONTAL';
     card.paddingTop = S.boxPadT;
     card.paddingRight = S.boxPadR;
@@ -300,12 +337,15 @@ async function buildHandoff(data) {
     card.fills = [{ type: 'SOLID', color: color }];
     card.counterAxisAlignItems = 'CENTER';
 
-    // Badge circle
-    const badge = figma.createEllipse();
-    badge.name = 'Badge';
-    badge.resize(S.badgeSize, S.badgeSize);
-    badge.fills = [{ type: 'SOLID', color: T.white }];
-    card.appendChild(badge);
+    // Badge: round frame with centered number
+    const badgeFrame = figma.createFrame();
+    badgeFrame.name = 'Badge';
+    badgeFrame.resize(S.badgeSize, S.badgeSize);
+    badgeFrame.fills = [{ type: 'SOLID', color: T.white }];
+    badgeFrame.cornerRadius = S.badgeRadius;
+    badgeFrame.layoutMode = 'HORIZONTAL';
+    badgeFrame.counterAxisAlignItems = 'CENTER';
+    badgeFrame.primaryAxisAlignItems = 'CENTER';
 
     const badgeNum = figma.createText();
     badgeNum.fontName = { family: 'Roboto', style: 'Bold' };
@@ -313,7 +353,9 @@ async function buildHandoff(data) {
     badgeNum.fontSize = S.badgeFontSize;
     badgeNum.fills = [{ type: 'SOLID', color: T.black }];
     badgeNum.textAutoResize = 'WIDTH_AND_HEIGHT';
-    card.appendChild(badgeNum);
+    badgeFrame.appendChild(badgeNum);
+
+    card.appendChild(badgeFrame);
 
     // Content
     const content = figma.createFrame();
@@ -339,7 +381,6 @@ async function buildHandoff(data) {
     nameText.textAutoResize = 'WIDTH_AND_HEIGHT';
     content.appendChild(nameText);
 
-    // Set HUG sizing AFTER appendChild
     card.layoutSizingHorizontal = 'HUG';
     card.layoutSizingVertical = 'HUG';
     content.layoutSizingHorizontal = 'HUG';
@@ -359,6 +400,10 @@ async function buildHandoff(data) {
     sectionId: section.id,
     screenFrameId: screenFrame.id,
     annotationCount: numbered.length,
-    ignoreCount: ignores.length
+    ignoreCount: ignores.length,
+    highlightsCreated: highlightsCreated,
+    warning: highlightsCreated < numbered.length
+      ? 'Missing targetBounds for ' + (numbered.length - highlightsCreated) + ' annotation(s). Add targetBounds to JSON for accurate highlights.'
+      : null
   };
 }

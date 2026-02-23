@@ -29,7 +29,7 @@
     },
     "annotations": {
       "type": "array",
-      "description": "Ordered list of accessibility annotations. All label cards appear on the RIGHT side of the screen. Array order = reading order.",
+      "description": "Ordered list of accessibility annotations. All label cards appear on the RIGHT side of the screen. Each annotation SHOULD include targetBounds for accurate highlight placement.",
       "minItems": 1,
       "items": {
         "type": "object",
@@ -41,7 +41,18 @@
           "accessibilityName": { "type": "string", "description": "What the screen reader announces" },
           "role": { "type": "string", "description": "ARIA role or element type" },
           "state": { "type": "string", "description": "Optional state/action (Button tags only)" },
-          "targetNodeId": { "type": "string", "description": "Optional Figma node ID for programmatic position detection" }
+          "targetNodeId": { "type": "string", "description": "Optional Figma node ID for programmatic position detection" },
+          "targetBounds": {
+            "type": "object",
+            "description": "Approximate bounds of the component on the device screen, as proportions (0.0 to 1.0) of the device frame. x=0.0 is left edge, y=0.0 is top edge, width=1.0 is full device width, height=1.0 is full device height. The AI MUST estimate these from the screenshot to get accurate highlight placement. Without this, highlights are skipped.",
+            "properties": {
+              "x": { "type": "number", "minimum": 0, "maximum": 1, "description": "Left edge as proportion of device width" },
+              "y": { "type": "number", "minimum": 0, "maximum": 1, "description": "Top edge as proportion of device height" },
+              "width": { "type": "number", "minimum": 0, "maximum": 1, "description": "Width as proportion of device width" },
+              "height": { "type": "number", "minimum": 0, "maximum": 1, "description": "Height as proportion of device height" }
+            },
+            "required": ["x", "y", "width", "height"]
+          }
         }
       }
     }
