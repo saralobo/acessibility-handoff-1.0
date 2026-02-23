@@ -1,4 +1,4 @@
-# 10 - Anti-Patterns Catalog
+# 10 - Anti-Patterns Catalog (v2.1)
 
 This document lists every known mistake an AI agent can make when creating accessibility hand-offs, along with the detection method and fix. Study these BEFORE creating any hand-off.
 
@@ -39,79 +39,55 @@ tagBox.layoutSizingHorizontal = 'HUG';
 tagBox.layoutSizingVertical = 'HUG';
 ```
 
-## AP-03: Circle Endpoints on Lines
+## AP-03: Creating Connecting Lines (v2.1)
 
-**Severity:** High
-**What happened:** An ELLIPSE node (6x6px circle) was placed at the end of each line.
-**Why it's wrong:** The current design does not use circle endpoints. Lines end cleanly.
-**Detection:** Any ELLIPSE child inside the root tag frame.
-**Fix:** Do not create ELLIPSE nodes. The line is just a filled FRAME with FILL sizing.
-
-```javascript
-// WRONG
-const circle = figma.createEllipse();
-circle.resize(6, 6);
-parent.appendChild(circle);
-
-// RIGHT
-// No circle. Line frame fill IS the visible line.
-```
-
-## AP-04: Line as Separate Element
-
-**Severity:** High
-**What happened:** The line was created as a separate FRAME node, not part of the tag's auto-layout.
-**Why it's wrong:** Moving or resizing the tag doesn't move the line. The line can't auto-resize.
-**Detection:** Line FRAME is a sibling of the tag box (both children of the screen frame) instead of being inside a shared root frame with auto-layout.
-**Fix:** Both the tag box and line frame must be children of a single root frame with auto-layout.
+**Severity:** Critical
+**What happened:** The AI created lines or arrows connecting tags to components.
+**Why it's wrong:** v2.1 does NOT use connecting lines. Numbered badges on the screen and numbered label cards on the right side create the visual association.
+**Detection:** Any VECTOR, LINE, or frame named "line" inside the screen frame.
+**Fix:** Do not create any lines. Use `figma/build-handoff.js` v2.1 which places badges ON components and label cards on the right.
 
 ```javascript
-// WRONG - separate elements
-screen.appendChild(tagBox);
-screen.appendChild(lineFrame);  // disconnected
+// WRONG - creating lines
+const line = figma.createVector();
+line.strokeWeight = 2;
 
-// RIGHT - shared root with auto-layout
-root.layoutMode = 'HORIZONTAL';
-root.appendChild(tagBox);
-root.appendChild(lineFrame);  // FILL sizing makes it resize automatically
+// RIGHT - no lines in v2.1
+// The build script creates badges ON the screen and labels on the RIGHT
 ```
 
-## AP-05: Line Doesn't Resize (FIXED Instead of FILL)
+## AP-04: Placing Labels on Multiple Sides
+
+**Severity:** Critical
+**What happened:** The AI placed labels around the screen on different sides (left, right, top, bottom).
+**Why it's wrong:** v2.1 places ALL label cards on the RIGHT side of the screen. There is no `side` field in the schema.
+**Detection:** Any label card with `x < deviceFrame.x`.
+**Fix:** All label cards must be to the right of the device frame.
+
+## AP-05: Missing On-Screen Badges
 
 **Severity:** High
-**What happened:** The line frame has FIXED sizing instead of FILL, so resizing the root frame doesn't change the line length.
-**Why it's wrong:** You can't adjust the tag-to-screen distance by resizing the root.
-**Detection:** `lineFrame.layoutSizingHorizontal !== 'FILL'` (for horizontal tags)
-**Fix:** Set `layoutSizingHorizontal = 'FILL'` for horizontal or `layoutSizingVertical = 'FILL'` for vertical.
+**What happened:** Label cards were created but no numbered badge circles were placed on the screen components.
+**Why it's wrong:** Without on-screen badges, there's no visual link between the component and its label card.
+**Detection:** No children named "Badge N" inside the screen frame.
+**Fix:** The build script creates a 22x22 colored circle with the reading order number near each component.
 
-## AP-06: Tags Overlapping Each Other
+## AP-06: Missing Highlight Rectangles
 
-**Severity:** Medium
-**What happened:** Multiple tags on the same side are stacked without proper spacing.
-**Why it's wrong:** Tags become unreadable when they overlap.
-**Detection:** `abs(tag1.y + tag1.height - tag2.y) < 32`
-**Fix:** Enforce 32px gap: `nextTag.y = prevTag.y + prevTag.height + 32`
+**Severity:** High
+**What happened:** Components on the screen have no colored outline/rectangle around them.
+**Why it's wrong:** Without highlights, it's hard to see which area of the screen each annotation refers to.
+**Detection:** No children named "Highlight N" inside the screen frame.
+**Fix:** The build script creates a colored stroke rectangle around each component's estimated area.
 
-## AP-07: All Tags on One Side
-
-**Severity:** Medium
-**What happened:** All annotations were placed on the left (or right) side.
-**Why it's wrong:** Creates a visual mess, lines cross each other, hard to read.
-**Detection:** Count tags per side. If any side has > 5 tags while others have 0.
-**Fix:** Redistribute using the side assignment rules:
-- Left: Labels, Headings
-- Right: Buttons (contextual), overflow
-- Top: Header buttons
-- Bottom: Final CTAs
-
-## AP-08: Text Not Auto-Resizing
+## AP-07: Text Not Auto-Resizing
 
 **Severity:** Medium
 **What happened:** Text nodes have fixed width, causing long text to wrap or clip.
 **Detection:** `textNode.textAutoResize !== 'WIDTH_AND_HEIGHT'`
 **Fix:** Set `textAutoResize = 'WIDTH_AND_HEIGHT'` on every text node inside tag boxes.
 
-## AP-09: Wrong Reading Order
+## AP-08: Wrong Reading Order
 
 **Severity:** Medium
 **What happened:** Order badges follow visual layout (top-left to bottom-right) instead of comprehension logic.
@@ -119,13 +95,13 @@ root.appendChild(lineFrame);  // FILL sizing makes it resize automatically
 **Detection:** Manual review - is the heading numbered before navigation buttons?
 **Fix:** Follow reading order principles: Context -> Content -> Actions -> Navigation
 
-## AP-10: Missing Template Structure
+## AP-09: Missing Template Structure
 
 **Severity:** Low (functional but not standard)
 **What happened:** Tags were placed directly on the canvas without the Section + Title flow + Flow section structure.
-**Fix:** Always use `figma/handoff-template.js` to create the container structure first.
+**Fix:** Always use the build script which creates the full template automatically.
 
-## AP-11: layoutSizingHorizontal Set Before appendChild
+## AP-10: layoutSizingHorizontal Set Before appendChild
 
 **Severity:** High (silent failure)
 **What happened:** `layoutSizingHorizontal = 'HUG'` or `'FILL'` was set BEFORE the node was appended to an auto-layout parent.
@@ -143,40 +119,33 @@ root.appendChild(tagBox);  // append first
 tagBox.layoutSizingHorizontal = 'HUG';  // now it works
 ```
 
-## AP-12: Lines Not Connected to Components
+## AP-11: Skipping Verification
 
 **Severity:** Critical
-**What happened:** Tag lines extend to arbitrary positions instead of touching the actual target component's edge on the screen.
-**Why it's wrong:** The hand-off becomes ambiguous - it's unclear which component each tag refers to.
-**Detection:** The root frame's edge (right for direita, left for esquerda, bottom for baixo, top for cima) does not align with the target component's position on screen.
-**Fix:** Calculate the root frame dimensions so the line endpoint touches the target:
+**What happened:** The AI said "done" or "looks good" without running `verify-handoff.js`.
+**Why it's wrong:** Subjective AI opinions are unreliable. Only the verification script provides objective PASS/FAIL checks.
+**Detection:** No verification report was shown to the user.
+**Fix:** ALWAYS run `figma/verify-handoff.js` after building. Post the full report. Fix any FAIL checks.
 
-```javascript
-// For "direita" (line goes right): right edge = target left edge X
-root.x = 0;
-root.resize(targetScreenX, root.height);
+## AP-12: Creating Manual Figma Elements
 
-// For "esquerda" (line goes left): left edge = target right edge X
-root.x = targetScreenX;
-root.resize(screenWidth - targetScreenX, root.height);
-
-// Y center alignment:
-root.y = targetCenterY - Math.round(root.height / 2);
-```
-
-**Key principle:** Even on a screenshot (flat image), you MUST estimate each component's pixel position and use those coordinates for precise line placement.
+**Severity:** Critical
+**What happened:** The AI created frames, rectangles, text nodes, or other elements directly via `figma_execute` instead of using the build script.
+**Why it's wrong:** Manual creation produces inconsistent output. The build script is the ONLY path to correct visual output.
+**Detection:** Elements exist that weren't created by `buildHandoff()`.
+**Fix:** Always use `figma/build-handoff.js`. Never create Figma elements manually.
 
 ## Quick Checklist Before Delivery
 
 ```
 [ ] Screen is real (clone/screenshot), not rebuilt
-[ ] Every tag box: HUG x HUG
-[ ] Every line frame: FILL (horizontal) or FILL (vertical)
-[ ] Zero ELLIPSE nodes in the entire hand-off
-[ ] 32px gap between all stacked tags
-[ ] Tags distributed across at least 2 sides
+[ ] Every label card: HUG x HUG
+[ ] Zero lines/vectors in the entire hand-off
+[ ] All label cards on the RIGHT side of the screen
+[ ] Numbered badges ON each component on the screen
+[ ] Highlight rectangles around components
 [ ] All text nodes: textAutoResize = WIDTH_AND_HEIGHT
 [ ] Reading order follows comprehension logic
 [ ] Template structure present (Section + Title flow + Sidebar + Flow section)
-[ ] Final screenshot taken and visually validated
+[ ] verify-handoff.js executed and ALL checks PASS
 ```

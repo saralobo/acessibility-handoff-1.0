@@ -1,14 +1,23 @@
-# a11y-handoff v2
+# a11y-handoff v2.1
 
 Accessibility hand-off annotation system for Figma. Uses a **JSON-driven architecture** that guarantees identical visual output regardless of which AI tool is used (Claude.ai, Cursor, Claude Code).
 
 ## Architecture
 
 ```
-AI analyzes screen → Generates JSON → build-handoff.js → Identical Figma output
+AI analyzes screen → Generates JSON → build-handoff.js → verify-handoff.js → Verified Figma output
 ```
 
-The AI only THINKS (analysis, roles, reading order). The script only BUILDS (layout, colors, tags, lines). These two concerns never mix.
+The AI only THINKS (analysis, roles, reading order). The script only BUILDS (layout, colors, tags, badges). The verifier only CHECKS (PASS/FAIL). These three concerns never mix.
+
+## v2.1 Design
+
+The hand-off layout:
+- **Screen** on the left with numbered **badges ON components** and **colored highlight rectangles**
+- **Label cards** stacked vertically on the **RIGHT side** of the screen
+- **NO lines** connecting anything
+- **Ignore areas** shown as hatched gray overlays
+- **Mandatory QA verification** before delivery
 
 ## What's inside
 
@@ -20,15 +29,16 @@ a11y-handoff/
 ├── examples/
 │   └── payment-screen.json            # Complete real-world example
 ├── figma/
-│   ├── build-handoff.js               # MASTER SCRIPT — only visual builder
+│   ├── build-handoff.js               # MASTER SCRIPT — deterministic builder (v2.1)
+│   ├── verify-handoff.js              # QA verification — PASS/FAIL checks
 │   ├── detect-components.js           # Component boundary detection
 │   ├── handoff-template.js            # Template creation (used by build)
-│   ├── validate-handoff.js            # Post-creation validation
+│   ├── validate-handoff.js            # Legacy validation
 │   └── repair-tag.js                  # Auto-fix common issues
 ├── docs/
 │   ├── 08-handoff-template.md         # Visual template specs
-│   ├── 09-ai-reasoning-chain.md       # AI analysis process (v2)
-│   ├── 10-anti-patterns.md            # Mistakes catalog
+│   ├── 09-ai-reasoning-chain.md       # AI analysis process (v2.1)
+│   ├── 10-anti-patterns.md            # Mistakes catalog (v2.1)
 │   └── 11-component-detection.md      # Element detection strategy
 └── commands/
     └── a11y-handoff.md                # Cursor slash command
@@ -50,16 +60,11 @@ Claude Code reads `CLAUDE.md` automatically. Say:
 ### Option B: Cursor IDE
 
 ```bash
-# Copy the slash command
 mkdir -p .cursor/commands
-cp commands/a11y-handoff.md .cursor/commands/
-
-# Copy reasoning chain as always-on rule
-mkdir -p .cursor/rules
-cp docs/09-ai-reasoning-chain.md .cursor/rules/a11y-reasoning.mdc
+cp commands/a11y-handoff.md .cursor/commands/handoff-acessibility.md
 ```
 
-In Agent chat, type `/a11y-handoff`.
+In Agent chat, type `/handoff-acessibility`.
 
 ### Option C: Claude.ai (Projects)
 
@@ -88,7 +93,6 @@ The AI takes a screenshot, identifies components, defines reading order, and gen
       "order": 1,
       "componentName": "Screen title",
       "tagType": "H",
-      "side": "direita",
       "accessibilityName": "\"Payment\"",
       "role": "heading"
     }
@@ -96,21 +100,33 @@ The AI takes a screenshot, identifies components, defines reading order, and gen
 }
 ```
 
+**Note:** v2.1 has no `side` field. All label cards appear on the right automatically.
+
 ### Step 2: Script builds (deterministic)
 
-The AI executes `figma/build-handoff.js` with the JSON. The script creates the entire hand-off layout in Figma — template, cloned screen, tags with lines, groups, and ignore areas. Same input = same output, every time.
+The AI executes `figma/build-handoff.js` with the JSON. The script creates:
+- Template (Section + Title flow + Sidebar + Flow section)
+- Cloned screen
+- Numbered badge circles ON each component
+- Colored highlight rectangles around components
+- Label cards stacked on the RIGHT side
+- NO lines
 
-## Why v2?
+Same input = same output, every time.
 
-v1 had docs that described *how* to build the visual output, giving AIs freedom to interpret. Different tools produced wildly different results. v2 enforces a strict contract:
+### Step 3: Verification (mandatory)
 
-| v1 Problem | v2 Solution |
-|------------|-------------|
-| AI improvises layout | Script builds everything deterministically |
-| Docs are interpretable | JSON schema is rigid, no ambiguity |
-| Scripts are optional | Script is the ONLY path to visual output |
-| No reference example | Complete example with expected output |
-| Font/color mismatches | All design tokens hardcoded in script |
+The AI executes `figma/verify-handoff.js` which runs 10+ checks and returns PASS/FAIL for each. The AI may NOT say "done" until all checks pass.
+
+## Why v2.1?
+
+| v1 Problem | v2 Solution | v2.1 Addition |
+|------------|-------------|---------------|
+| AI improvises layout | Script builds deterministically | QA verification layer |
+| Docs are interpretable | JSON schema is rigid | No side decisions needed |
+| Scripts are optional | Script is the ONLY path | Verification is MANDATORY |
+| No reference example | Complete example | Simpler design (no lines) |
+| AI says "looks good" | Hardcoded tokens | Only verify script decides |
 
 ## Design tokens (hardcoded in build script)
 
@@ -121,13 +137,13 @@ v1 had docs that described *how* to build the visual output, giving AIs freedom 
 | H color | `rgb(37, 41, 169)` — purple |
 | Group color | `rgb(218, 67, 12)` — red |
 | Ignore color | `rgb(153, 153, 153)` — gray |
-| Tag font | JetBrains Mono Bold 14 / Regular 10-12 |
+| Tag font | JetBrains Mono Bold 14 / Regular 10 |
 | Template font | Roboto Regular / SemiBold |
 | Tag padding | 8 / 12 / 8 / 12 |
 | Tag corner radius | 8px |
-| Badge | 22x22 circle, white |
-| Line | Vector stroke 2px inside 4px frame |
-| Stack gap | 32px between tags |
+| Badge | 22x22 circle |
+| Label card gap | 18px between cards |
+| Highlight stroke | 2px, 8px corner radius |
 
 ## Figma MCP requirement
 
@@ -141,9 +157,10 @@ All setups require a Figma MCP server with at minimum:
 ## Contributing
 
 1. Update `figma/build-handoff.js` for visual changes
-2. Update `schema/handoff-data.schema.json` for data format changes
-3. Update `examples/payment-screen.json` to match
-4. Update `docs/10-anti-patterns.md` for new mistake patterns
+2. Update `figma/verify-handoff.js` to match new checks
+3. Update `schema/handoff-data.schema.json` for data format changes
+4. Update `examples/payment-screen.json` to match
+5. Update `docs/10-anti-patterns.md` for new mistake patterns
 
 ## License
 
