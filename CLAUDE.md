@@ -4,19 +4,33 @@ This repository produces screen reader accessibility annotations in Figma. It us
 
 ## Visual Reference (STUDY FIRST)
 
-**Before building anything**, study the reference screenshots in `examples/reference/` to understand the expected visual output:
+**Before building anything**, understand the expected visual output. You have two options:
+
+### Option A: View the PNG screenshots (if your tool supports images)
 
 - `examples/reference/full-handoff.png` — Complete hand-off layout (template + screen + labels)
 - `examples/reference/screen-annotations.png` — Close-up of correct screen annotations
-- `examples/reference/README.md` — Download instructions if PNGs are missing
 
-Pay special attention to: badge circles (24x24, never distorted), highlights wrapping individual components (not full-width bands), label cards on the RIGHT side, no connecting lines.
+If you are in **Claude.ai Projects**, these PNGs must be uploaded as separate image files in the Knowledge section — Claude does not auto-read binary images from uploaded repos. If you are in **Cursor**, the PNGs are only viewable if the repo is cloned locally. If you are in **Claude Code** with a local clone, you can view them directly.
+
+### Option B: Read the text description (works in ALL tools)
+
+Read `examples/reference/README.md` — it contains **detailed ASCII diagrams and text descriptions** of exactly what the correct output looks like. This is the reliable fallback that works regardless of whether your tool can open PNG files.
+
+### Key visual rules (memorize these):
+
+- Badge circles are **24x24 pixels, perfect circles** — never stretched or squished
+- Highlights are **stroke-only rectangles** wrapping individual components — NOT full-width bands
+- Label cards are **ALL on the RIGHT side** of the device screen
+- **NO connecting lines** — labels and components are matched by number only
+- Card spacing is **18px** between each label card
+- Colors: green (Button), blue (Label), purple (H), red dashed (Group), gray 30% (Ignore)
 
 ## Your Job: THREE Tasks
 
 ### Task 1 — ANALYZE (you do this)
 
-1. Study the reference PNGs in `examples/reference/` to understand the expected output
+1. Study the visual reference (PNG or text description in `examples/reference/README.md`)
 2. Take a screenshot of the target screen
 3. Identify every interactive element, text block, heading, image, and icon
 4. Classify each element: Button (interactive), Label (text content), H (heading), Group (related items), Ignore (decorative)
@@ -120,7 +134,8 @@ For each annotation, you MUST estimate where the component is on the screen. Exp
 
 | File | Purpose | When to read |
 |------|---------|-------------|
-| `examples/reference/*.png` | Visual reference of correct output | **FIRST — before anything else** |
+| `examples/reference/README.md` | Visual reference — text descriptions + PNG info | **FIRST — before anything else** |
+| `examples/reference/*.png` | Visual reference — screenshots (if your tool can view images) | **FIRST — if available** |
 | `schema/handoff-data.schema.json` | JSON format spec | Before generating JSON |
 | `examples/payment-screen.json` | Complete example with targetBounds | Before generating JSON |
 | `figma/build-handoff.js` | Build script | Execute after JSON is ready |
