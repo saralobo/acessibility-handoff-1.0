@@ -1,9 +1,10 @@
 /**
- * verify-handoff.js v2.2 — Strict QA Verification Layer
+ * verify-handoff.js v2.3 — Strict QA Verification Layer
  *
- * 16 checks that catch real visual problems, not just existence.
+ * 18 checks that catch real visual problems, not just existence.
  * Detects: equal-height bands, oversized highlights, filled highlights,
- * badges outside device, overlapping cards, missing elements, wrong sizing.
+ * badges outside device, overlapping cards, missing elements, wrong sizing,
+ * badge distortion (must be 24x24).
  *
  * The AI must NOT say "done" until all checks pass.
  *
@@ -17,36 +18,37 @@ async function verifyHandoff(screenFrameId, expectedAnnotationCount) {
   if (!screen) {
     return {
       passed: false,
-      score: '0/16',
+      score: '0/18',
       checks: [{ name: '1. Screen frame exists', status: 'FAIL', detail: 'Node not found: ' + screenFrameId, severity: 'CRITICAL' }],
       summary: 'BLOCKED — Screen frame not found.'
     };
   }
 
   const checks = [];
-  let passCount = 0;
+  var passCount = 0;
 
   function check(name, condition, detail, severity) {
-    const status = condition ? 'PASS' : 'FAIL';
+    var status = condition ? 'PASS' : 'FAIL';
     if (condition) passCount++;
     checks.push({ name: name, status: status, detail: detail, severity: severity || 'CRITICAL' });
   }
 
-  const children = screen.children || [];
-  const deviceFrame = children[0] || null;
-  const devRight = deviceFrame ? deviceFrame.x + deviceFrame.width : 0;
-  const devBottom = deviceFrame ? deviceFrame.y + deviceFrame.height : 0;
-  const devW = deviceFrame ? deviceFrame.width : 1;
-  const devH = deviceFrame ? deviceFrame.height : 1;
-  const devArea = devW * devH;
+  var children = screen.children || [];
+  var deviceFrame = children[0] || null;
+  var devRight = deviceFrame ? deviceFrame.x + deviceFrame.width : 0;
+  var devBottom = deviceFrame ? deviceFrame.y + deviceFrame.height : 0;
+  var devW = deviceFrame ? deviceFrame.width : 1;
+  var devH = deviceFrame ? deviceFrame.height : 1;
+  var devArea = devW * devH;
 
   // --- Collect elements by name prefix ---
-  const labelCards = [];
-  const highlights = [];
-  const badges = [];
+  var labelCards = [];
+  var highlights = [];
+  var badges = [];
 
-  for (const child of children) {
-    const n = child.name || '';
+  for (var ci = 0; ci < children.length; ci++) {
+    var child = children[ci];
+    var n = child.name || '';
     if (n.startsWith('Label Card ')) { labelCards.push(child); continue; }
     if (n.startsWith('Highlight ')) { highlights.push(child); continue; }
     if (n.startsWith('Badge ')) { badges.push(child); continue; }
@@ -59,8 +61,8 @@ async function verifyHandoff(screenFrameId, expectedAnnotationCount) {
   check('2. Screen has children', children.length > 2, 'Children: ' + children.length);
 
   // === CHECK 3: Device frame is cloned (not rebuilt) ===
-  const hasRealContent = deviceFrame && deviceFrame.children && deviceFrame.children.length > 2;
-  const isCloneType = deviceFrame && ['FRAME', 'COMPONENT', 'INSTANCE', 'GROUP'].includes(deviceFrame.type);
+  var hasRealContent = deviceFrame && deviceFrame.children && deviceFrame.children.length > 2;
+  var isCloneType = deviceFrame && ['FRAME', 'COMPONENT', 'INSTANCE', 'GROUP'].includes(deviceFrame.type);
   check('3. Device is cloned (not rebuilt)',
     isCloneType && hasRealContent,
     deviceFrame
@@ -68,13 +70,15 @@ async function verifyHandoff(screenFrameId, expectedAnnotationCount) {
       : 'No device frame found');
 
   // === CHECK 4: No connecting lines ===
-  let lineCount = 0;
-  let vectorCount = 0;
-  for (const child of children) {
-    if (child.type === 'VECTOR' || child.type === 'LINE') vectorCount++;
-    if (child.name && child.name.toLowerCase().includes('line')) lineCount++;
-    if (child.children) {
-      for (const gc of child.children) {
+  var lineCount = 0;
+  var vectorCount = 0;
+  for (var li = 0; li < children.length; li++) {
+    var lChild = children[li];
+    if (lChild.type === 'VECTOR' || lChild.type === 'LINE') vectorCount++;
+    if (lChild.name && lChild.name.toLowerCase().includes('line')) lineCount++;
+    if (lChild.children) {
+      for (var lci = 0; lci < lChild.children.length; lci++) {
+        var gc = lChild.children[lci];
         if (gc.type === 'VECTOR' || gc.type === 'LINE') vectorCount++;
       }
     }
@@ -86,18 +90,21 @@ async function verifyHandoff(screenFrameId, expectedAnnotationCount) {
   check('5. Label cards exist', labelCards.length > 0, 'Found: ' + labelCards.length);
 
   // === CHECK 6: ALL label cards on right side ===
-  const cardsOnLeft = labelCards.filter(function(c) { return c.x <= devRight; });
+  var cardsOnLeft = [];
+  for (var coi = 0; coi < labelCards.length; coi++) {
+    if (labelCards[coi].x <= devRight) cardsOnLeft.push(labelCards[coi]);
+  }
   check('6. All labels on RIGHT of device', cardsOnLeft.length === 0,
     cardsOnLeft.length > 0
       ? cardsOnLeft.length + ' card(s) at x <= ' + Math.round(devRight) + 'px (device right edge)'
       : 'All ' + labelCards.length + ' cards positioned correctly');
 
   // === CHECK 7: Label cards don't overlap ===
-  let cardOverlaps = 0;
-  const sortedCards = labelCards.slice().sort(function(a, b) { return a.y - b.y; });
-  for (let i = 1; i < sortedCards.length; i++) {
-    var prev = sortedCards[i - 1];
-    var curr = sortedCards[i];
+  var cardOverlaps = 0;
+  var sortedCards = labelCards.slice().sort(function(a, b) { return a.y - b.y; });
+  for (var oi = 1; oi < sortedCards.length; oi++) {
+    var prev = sortedCards[oi - 1];
+    var curr = sortedCards[oi];
     if (curr.y < prev.y + prev.height - 2) cardOverlaps++;
   }
   check('7. Label cards don\'t overlap', cardOverlaps === 0,
@@ -145,8 +152,8 @@ async function verifyHandoff(screenFrameId, expectedAnnotationCount) {
 
   // === CHECK 11: No oversized highlights (>40% of device area) ===
   var oversized = 0;
-  for (var oi = 0; oi < highlights.length; oi++) {
-    var oh = highlights[oi];
+  for (var osi = 0; osi < highlights.length; osi++) {
+    var oh = highlights[osi];
     if (oh.width * oh.height > devArea * 0.4) oversized++;
   }
   check('11. No oversized highlights (>40% of screen)',
@@ -158,17 +165,25 @@ async function verifyHandoff(screenFrameId, expectedAnnotationCount) {
   // === CHECK 12: Highlights are NOT equal-height bands ===
   var isEqualBands = false;
   if (highlights.length >= 3) {
-    var hHeights = highlights.map(function(h) { return Math.round(h.height); });
-    var hWidths = highlights.map(function(h) { return Math.round(h.width); });
-    var allSameH = hHeights.every(function(h) { return Math.abs(h - hHeights[0]) < 5; });
-    var allFullW = hWidths.every(function(w) { return w > devW * 0.85; });
+    var hHeights = [];
+    var hWidths = [];
+    for (var ehi = 0; ehi < highlights.length; ehi++) {
+      hHeights.push(Math.round(highlights[ehi].height));
+      hWidths.push(Math.round(highlights[ehi].width));
+    }
+    var allSameH = true;
+    var allFullW = true;
+    for (var ahi = 0; ahi < hHeights.length; ahi++) {
+      if (Math.abs(hHeights[ahi] - hHeights[0]) >= 5) allSameH = false;
+      if (hWidths[ahi] <= devW * 0.85) allFullW = false;
+    }
     isEqualBands = allSameH && allFullW;
   }
   check('12. Highlights are NOT uniform bands', !isEqualBands,
     isEqualBands
       ? 'All highlights are same-height (' + Math.round(highlights[0].height) + 'px) full-width bands — this means targetBounds was missing or wrong. Each highlight should wrap its specific component.'
       : highlights.length >= 3
-        ? 'Heights vary: [' + highlights.map(function(h) { return Math.round(h.height); }).join(', ') + ']px'
+        ? 'Heights vary: [' + hHeights.join(', ') + ']px'
         : 'OK (' + highlights.length + ' highlights)');
 
   // === CHECK 13: Annotation count ===
@@ -183,8 +198,8 @@ async function verifyHandoff(screenFrameId, expectedAnnotationCount) {
 
   // === CHECK 14: All cards use HUG sizing ===
   var fixedCards = 0;
-  for (var ci = 0; ci < labelCards.length; ci++) {
-    if (labelCards[ci].layoutSizingHorizontal && labelCards[ci].layoutSizingHorizontal !== 'HUG') fixedCards++;
+  for (var hci = 0; hci < labelCards.length; hci++) {
+    if (labelCards[hci].layoutSizingHorizontal && labelCards[hci].layoutSizingHorizontal !== 'HUG') fixedCards++;
   }
   check('14. Label cards use HUG sizing', fixedCards === 0,
     fixedCards > 0 ? fixedCards + ' card(s) use FIXED sizing instead of HUG' : 'All HUG');
@@ -195,12 +210,12 @@ async function verifyHandoff(screenFrameId, expectedAnnotationCount) {
   function scanTexts(node) {
     if (!node || !node.children) return;
     for (var ti = 0; ti < node.children.length; ti++) {
-      var child = node.children[ti];
-      if (child.type === 'TEXT') {
-        if (child.textAutoResize === 'WIDTH_AND_HEIGHT') textOk++;
+      var tChild = node.children[ti];
+      if (tChild.type === 'TEXT') {
+        if (tChild.textAutoResize === 'WIDTH_AND_HEIGHT') textOk++;
         else textBad++;
       }
-      if (child.children) scanTexts(child);
+      if (tChild.children) scanTexts(tChild);
     }
   }
   for (var si = 0; si < labelCards.length; si++) scanTexts(labelCards[si]);
@@ -209,19 +224,58 @@ async function verifyHandoff(screenFrameId, expectedAnnotationCount) {
 
   // === CHECK 16: Badge numbers are sequential ===
   var sequential = true;
-  var badgeNums = badges.map(function(b) {
-    return parseInt(b.name.replace('Badge ', ''));
-  }).sort(function(a, b) { return a - b; });
+  var badgeNums = [];
+  for (var bni = 0; bni < badges.length; bni++) {
+    badgeNums.push(parseInt(badges[bni].name.replace('Badge ', '')));
+  }
+  badgeNums.sort(function(a, b) { return a - b; });
   for (var ni = 0; ni < badgeNums.length; ni++) {
     if (badgeNums[ni] !== ni + 1) { sequential = false; break; }
   }
   check('16. Badge numbers sequential', sequential,
     'Numbers: [' + badgeNums.join(', ') + ']', 'HIGH');
 
+  // === CHECK 17: On-screen badges are 24x24 (not distorted) ===
+  var wrongSizeBadges = 0;
+  for (var bsi = 0; bsi < badges.length; bsi++) {
+    var bs = badges[bsi];
+    if (Math.abs(bs.width - 24) > 2 || Math.abs(bs.height - 24) > 2) wrongSizeBadges++;
+  }
+  check('17. On-screen badges are 24x24', wrongSizeBadges === 0,
+    wrongSizeBadges > 0
+      ? wrongSizeBadges + '/' + badges.length + ' badge(s) are not 24x24 — badges must be fixed size circles'
+      : 'All ' + badges.length + ' badges correct size',
+    'HIGH');
+
+  // === CHECK 18: Label card badges are 24x24 (not distorted by auto-layout) ===
+  var cardBadgeIssues = 0;
+  for (var cbi = 0; cbi < labelCards.length; cbi++) {
+    var lc = labelCards[cbi];
+    if (lc.children) {
+      for (var cbj = 0; cbj < lc.children.length; cbj++) {
+        var cbChild = lc.children[cbj];
+        if (cbChild.name === 'Badge' && cbChild.cornerRadius >= 10) {
+          if (Math.abs(cbChild.width - 24) > 2 || Math.abs(cbChild.height - 24) > 2) {
+            cardBadgeIssues++;
+          }
+        }
+      }
+    }
+  }
+  check('18. Label card badges are 24x24 (not distorted)', cardBadgeIssues === 0,
+    cardBadgeIssues > 0
+      ? cardBadgeIssues + ' badge(s) inside label cards are distorted by auto-layout — must be FIXED 24x24'
+      : 'All label card badges correct size',
+    'CRITICAL');
+
   // --- Summary ---
   var total = checks.length;
-  var criticalFails = checks.filter(function(c) { return c.status === 'FAIL' && c.severity === 'CRITICAL'; }).length;
-  var highFails = checks.filter(function(c) { return c.status === 'FAIL' && c.severity === 'HIGH'; }).length;
+  var criticalFails = 0;
+  var highFails = 0;
+  for (var sci = 0; sci < checks.length; sci++) {
+    if (checks[sci].status === 'FAIL' && checks[sci].severity === 'CRITICAL') criticalFails++;
+    if (checks[sci].status === 'FAIL' && checks[sci].severity === 'HIGH') highFails++;
+  }
   var allPassed = passCount === total;
 
   return {

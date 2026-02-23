@@ -1,5 +1,9 @@
 /**
- * build-handoff.js v2.2 — Deterministic Handoff Builder
+ * build-handoff.js v2.3 — Deterministic Handoff Builder
+ *
+ * v2.3 changes:
+ *   - Badges are now 24x24 with FIXED sizing to prevent auto-layout distortion
+ *   - Badge frames get layoutSizingHorizontal/Vertical = 'FIXED' after append
  *
  * v2.2 changes:
  *   - Uses targetBounds (proportional 0.0-1.0) for accurate highlight/badge placement
@@ -56,13 +60,13 @@ const TAG_SPEC = {
   boxPadT: 8, boxPadR: 12, boxPadB: 8, boxPadL: 12,
   boxCornerRadius: 8,
   boxItemSpacing: 8,
-  badgeSize: 22,
-  badgeRadius: 11,
+  badgeSize: 24,
+  badgeRadius: 12,
   badgeFontSize: 9.3,
   typeFontSize: 14,
   nameFontSize: 10,
   labelCardGap: 18,
-  badgeOnScreenSize: 22,
+  badgeOnScreenSize: 24,
   highlightStrokeWeight: 2,
   highlightCornerRadius: 8
 };
@@ -278,6 +282,8 @@ async function buildHandoff(data) {
       badgeGroup.y = devY + (S.badgeOnScreenSize + 8) * i;
     }
     screenFrame.appendChild(badgeGroup);
+    badgeGroup.layoutSizingHorizontal = 'FIXED';
+    badgeGroup.layoutSizingVertical = 'FIXED';
   }
 
   // --- 9. Group outlines ---
@@ -337,7 +343,7 @@ async function buildHandoff(data) {
     card.fills = [{ type: 'SOLID', color: color }];
     card.counterAxisAlignItems = 'CENTER';
 
-    // Badge: round frame with centered number
+    // Badge: round frame with centered number, FIXED 24x24 to prevent distortion
     const badgeFrame = figma.createFrame();
     badgeFrame.name = 'Badge';
     badgeFrame.resize(S.badgeSize, S.badgeSize);
@@ -356,6 +362,9 @@ async function buildHandoff(data) {
     badgeFrame.appendChild(badgeNum);
 
     card.appendChild(badgeFrame);
+    badgeFrame.layoutSizingHorizontal = 'FIXED';
+    badgeFrame.layoutSizingVertical = 'FIXED';
+    badgeFrame.resize(S.badgeSize, S.badgeSize);
 
     // Content
     const content = figma.createFrame();

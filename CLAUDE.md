@@ -1,18 +1,29 @@
-# Accessibility Hand-off System v2.2
+# Accessibility Hand-off System v2.3
 
 This repository produces screen reader accessibility annotations in Figma. It uses a **JSON-driven architecture**: the AI analyzes, the script builds, then verification confirms the result.
+
+## Visual Reference (STUDY FIRST)
+
+**Before building anything**, study the reference screenshots in `examples/reference/` to understand the expected visual output:
+
+- `examples/reference/full-handoff.png` — Complete hand-off layout (template + screen + labels)
+- `examples/reference/screen-annotations.png` — Close-up of correct screen annotations
+- `examples/reference/README.md` — Download instructions if PNGs are missing
+
+Pay special attention to: badge circles (24x24, never distorted), highlights wrapping individual components (not full-width bands), label cards on the RIGHT side, no connecting lines.
 
 ## Your Job: THREE Tasks
 
 ### Task 1 — ANALYZE (you do this)
 
-1. Take a screenshot of the target screen
-2. Identify every interactive element, text block, heading, image, and icon
-3. Classify each element: Button (interactive), Label (text content), H (heading), Group (related items), Ignore (decorative)
-4. Define reading order following comprehension logic (context before action, main content first)
-5. **Estimate targetBounds** for each component (see below)
-6. Output a JSON matching `schema/handoff-data.schema.json`
-7. See `examples/payment-screen.json` for a complete reference
+1. Study the reference PNGs in `examples/reference/` to understand the expected output
+2. Take a screenshot of the target screen
+3. Identify every interactive element, text block, heading, image, and icon
+4. Classify each element: Button (interactive), Label (text content), H (heading), Group (related items), Ignore (decorative)
+5. Define reading order following comprehension logic (context before action, main content first)
+6. **Estimate targetBounds** for each component (see below)
+7. Output a JSON matching `schema/handoff-data.schema.json`
+8. See `examples/payment-screen.json` for a complete reference
 
 #### How to Estimate targetBounds (REQUIRED)
 
@@ -39,7 +50,7 @@ For each annotation, you MUST estimate where the component is on the screen. Exp
    - Template (Section + Title flow + Sidebar + Flow section)
    - Cloned screen
    - Highlight rectangles around components (using targetBounds)
-   - Numbered badge circles at the corner of each highlight
+   - Numbered badge circles (24x24) at the corner of each highlight
    - Label cards stacked on the RIGHT side
    - NO lines
 
@@ -53,7 +64,7 @@ For each annotation, you MUST estimate where the component is on the screen. Exp
 
 **You do not have permission to give subjective opinions about the result.** Only the verify script decides if the output is correct.
 
-## What the Verify Script Checks (16 checks)
+## What the Verify Script Checks (18 checks)
 
 1. Screen frame exists
 2. Screen has children
@@ -71,6 +82,8 @@ For each annotation, you MUST estimate where the component is on the screen. Exp
 14. All cards use HUG sizing
 15. All text nodes auto-resize
 16. Badge numbers are sequential (1, 2, 3...)
+17. On-screen badges are 24x24 (not distorted)
+18. Label card badges are 24x24 (not distorted by auto-layout)
 
 ## You Must NEVER
 
@@ -79,7 +92,7 @@ For each annotation, you MUST estimate where the component is on the screen. Exp
 - Skip the JSON step and go straight to building
 - Improvise colors, fonts, spacing, or any visual property
 - Rebuild screens from scratch (always clone via nodeId)
-- Create connecting lines (v2.2 has NO lines)
+- Create connecting lines (v2.3 has NO lines)
 - Omit targetBounds from annotations (highlights will be missing)
 - Say "done" before verify-handoff.js returns all PASS
 - Give subjective opinions about the visual result
@@ -107,9 +120,10 @@ For each annotation, you MUST estimate where the component is on the screen. Exp
 
 | File | Purpose | When to read |
 |------|---------|-------------|
+| `examples/reference/*.png` | Visual reference of correct output | **FIRST — before anything else** |
 | `schema/handoff-data.schema.json` | JSON format spec | Before generating JSON |
 | `examples/payment-screen.json` | Complete example with targetBounds | Before generating JSON |
 | `figma/build-handoff.js` | Build script | Execute after JSON is ready |
-| `figma/verify-handoff.js` | QA verification (16 checks) | Execute after build |
+| `figma/verify-handoff.js` | QA verification (18 checks) | Execute after build |
 | `docs/09-ai-reasoning-chain.md` | Analysis process | During Task 1 |
 | `docs/10-anti-patterns.md` | Mistakes to avoid | During Task 1 |

@@ -1,4 +1,4 @@
-# 09 - AI Reasoning Chain (v2.2)
+# 09 - AI Reasoning Chain (v2.3)
 
 This document defines the thinking process for the ANALYSIS phase of an accessibility hand-off. The AI analyzes and produces JSON. The build script handles all visual construction. The verify script confirms correctness.
 
@@ -9,6 +9,10 @@ This document defines the thinking process for the ANALYSIS phase of an accessib
 [ ] The screen to annotate EXISTS in the Figma file (get its node ID)
 [ ] Read schema/handoff-data.schema.json to understand the output format
 [ ] Read examples/payment-screen.json to see a complete example with targetBounds
+[ ] STUDY reference PNGs in examples/reference/ — understand the expected visual output
+    - full-handoff.png: complete layout structure
+    - screen-annotations.png: correct badge/highlight/card placement
+    - If PNGs missing, follow download instructions in examples/reference/README.md
 ```
 
 ## Phase 1: Analyze the Screen
@@ -17,14 +21,15 @@ This document defines the thinking process for the ANALYSIS phase of an accessib
 
 **Steps:**
 1. Call `figma_take_screenshot` of the target screen at scale 2-3
-2. Identify every interactive element, text block, heading, image, and icon
-3. Classify each element:
+2. Compare with reference PNGs to calibrate expectations
+3. Identify every interactive element, text block, heading, image, and icon
+4. Classify each element:
    - **Heading** -> H tag (purple)
    - **Text content** -> Label tag (blue)
    - **Interactive element** (button, link, toggle) -> Button tag (green)
    - **Group of related elements** (card, list item) -> Group outline (red dashed)
    - **Decorative icon/image** (no semantic meaning) -> Ignore Area (gray)
-4. Write down the full list before proceeding
+5. Write down the full list before proceeding
 
 **Decision tree for each element:**
 ```
@@ -111,7 +116,7 @@ Using the analysis from Phases 1-3, produce a JSON object matching `schema/hando
 1. Read `figma/verify-handoff.js`
 2. Paste the script into `figma_execute`
 3. Call `verifyHandoff(screenFrameId, annotationCount)`
-4. Post the FULL report (16 checks) to the user
+4. Post the FULL report (18 checks) to the user
 5. If any check is FAIL, diagnose and fix, then re-verify
 6. You may NOT say "done" until all checks PASS
 
@@ -120,7 +125,7 @@ Using the analysis from Phases 1-3, produce a JSON object matching `schema/hando
 | Failed Check | Likely Cause | Fix |
 |-------------|-------------|-----|
 | 3. Device not cloned | Wrong nodeId | Re-run with correct screen nodeId |
-| 4. Lines found | Wrong script version | Use v2.2 build script (no lines) |
+| 4. Lines found | Wrong script version | Use v2.3 build script (no lines) |
 | 5-6. No/misplaced labels | Build failed | Re-run build script |
 | 8-9. No/misplaced badges | Build failed | Re-run build script |
 | 10. Highlights have fills | Script bug | Report to repo maintainer |
@@ -129,3 +134,5 @@ Using the analysis from Phases 1-3, produce a JSON object matching `schema/hando
 | 13. Count mismatch | JSON has wrong count | Check annotations array |
 | 14. Cards not HUG | Sizing set before append | Report to repo maintainer |
 | 16. Non-sequential badges | Gaps in order numbers | Fix order in JSON (1,2,3...) |
+| 17. Badges wrong size | Auto-layout distortion | Report to repo maintainer (build script fix needed) |
+| 18. Card badges distorted | Auto-layout stretching | Report to repo maintainer (FIXED sizing not applied) |
