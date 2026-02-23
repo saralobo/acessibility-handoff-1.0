@@ -36,7 +36,7 @@ a11y-handoff/
 ├── examples/
 │   ├── payment-screen.json            # Complete example with targetBounds
 │   └── reference/                     # Visual reference screenshots
-│       ├── README.md                  # Download instructions + what to look for
+│       ├── README.md                  # Text descriptions + per-tool PNG guide
 │       ├── full-handoff.png           # Complete layout (template + screen + labels)
 │       └── screen-annotations.png     # Close-up of correct annotations
 ├── figma/
@@ -79,14 +79,20 @@ Type `/handoff-acessibility` in Agent chat.
 ### Option C: Claude.ai (Projects)
 
 1. Create a Project, upload all files to Knowledge
-2. Custom instruction: "Follow CLAUDE.md for all hand-off requests"
-3. Start chatting
+2. **Important:** PNG images must be uploaded separately as image files — Claude.ai does not auto-read binary images from uploaded text/code files
+3. Custom instruction: "Follow CLAUDE.md for all hand-off requests"
+4. Start chatting
 
 ## How it works
 
 ### Step 0: Study reference
 
-AI examines `examples/reference/*.png` to understand the expected visual output before starting.
+AI reads the visual reference to understand the expected output. Two options:
+
+- **If the tool can view images:** Open `examples/reference/full-handoff.png` and `screen-annotations.png`
+- **If the tool cannot view images:** Read `examples/reference/README.md` which contains detailed ASCII diagrams and text descriptions of the correct output
+
+> **Note on PNGs:** The reference screenshots are real PNG files stored in this repo. Not all AI tools can automatically view binary images from a repository. The `examples/reference/README.md` file provides a complete text-based alternative that works in every tool. The scripts (`build-handoff.js` + `verify-handoff.js`) are the real enforcement layer — they guarantee correct output regardless of whether the AI saw the PNGs.
 
 ### Step 1: AI analyzes
 
