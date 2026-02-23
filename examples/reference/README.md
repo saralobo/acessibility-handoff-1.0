@@ -1,59 +1,152 @@
 # Visual Reference Screenshots
 
-These screenshots show the **correct** hand-off output. AI tools MUST study these before building.
+This folder contains **PNG image files** showing the correct hand-off output. They serve as the visual "source of truth" for what the final Figma result must look like.
+
+## Important: How AI Tools Handle These PNGs
+
+The PNGs are **binary image files** stored in this repository. Not all AI tools can automatically view images from a repo — here's what works in each tool:
+
+| Tool | Can it view PNGs from the repo? | What to do |
+|------|---|----|
+| **Claude.ai (Projects)** | Not automatically. Claude reads text files from Knowledge, not images. | **Download the PNGs and upload them manually** to the Project's Knowledge section as separate image files. |
+| **Cursor IDE** | Only if the repo is cloned locally. Cursor reads text files via `@repo`, not binary images. | **Clone the repo**, then reference the local PNG path. Or paste the image directly in chat. |
+| **Claude Code** | Yes, if the repo is cloned locally. | **Clone the repo** — Claude Code can view local image files. |
+| **ChatGPT / other tools** | Not automatically. | **Download and upload manually** as images in the conversation. |
+
+**Bottom line:** If your tool cannot view the PNG files, read the **Detailed Text Description** below. It describes exactly what's in each image so you can understand the expected output without seeing the pictures.
+
+---
 
 ## Reference Images
 
 ### 1. Full Hand-off Layout (`full-handoff.png`)
 
-Shows the complete hand-off structure:
-- Title flow (dark bar with headline, title, description)
-- Sidebar (gray, sub-flow label)
-- Flow section (dark background)
-- Screen with device, highlights, badges, and label cards on the right
-
-**Figma source:** [Node 5:1884 in Acessibility-Handoff](https://www.figma.com/design/aqy23dQskm8cbPL051MDYo/Acessibility-Handoff?node-id=5-1884)
+Shows the complete hand-off structure from zoomed out.
 
 ### 2. Screen Annotations Close-up (`screen-annotations.png`)
 
-Shows the model hand-off at full quality:
-- Device screen with cloned content
-- Highlight rectangles (stroke-only) around each component
-- Numbered badge circles (24x24, colored) at highlight corners
-- Label cards stacked on the right with badge + tag type + accessibility name
-- No connecting lines
+Shows a single annotated screen at full quality.
 
-**Figma source:** [Node 3:820 in Acessibility-Handoff](https://www.figma.com/design/aqy23dQskm8cbPL051MDYo/Acessibility-Handoff?node-id=3-820)
+---
 
-## How to Download
+## Detailed Text Description (for tools that cannot view images)
 
-The PNGs can be exported directly from the Figma file, or downloaded from the URLs below (valid ~30 days from Feb 23, 2026):
+If your AI tool cannot open PNG files, use these descriptions as your visual reference. The `build-handoff.js` script and `verify-handoff.js` checks enforce all of these rules programmatically — the text below simply explains what the correct output looks like.
+
+### What `full-handoff.png` shows:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  SECTION "Hand-off" (white background)                          │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │  Title flow (dark rounded rectangle #262536)            │    │
+│  │  HEADLINE — uppercase category, Roboto Regular 50px     │    │
+│  │  Title — large flow name, Roboto SemiBold 200px         │    │
+│  │  Description — context text, Roboto Regular 32px        │    │
+│  │  All text is WHITE on the dark background               │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                 │
+│  ┌──────┐  ┌───────────────────────────────────────────────┐    │
+│  │ Side │  │  Flow section (dark #262536)                  │    │
+│  │ bar  │  │                                               │    │
+│  │ gray │  │  ┌─────────────────┐  ┌─────────────────┐    │    │
+│  │#EDED │  │  │  Screen {1}     │  │  Screen {2}     │    │    │
+│  │ ED   │  │  │  (see close-up) │  │                 │    │    │
+│  │      │  │  └─────────────────┘  └─────────────────┘    │    │
+│  │"Sub- │  │                                               │    │
+│  │flow" │  │  Screens spaced 234px apart                   │    │
+│  └──────┘  └───────────────────────────────────────────────┘    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+- The sidebar (427px wide, gray `#EDEDED`, rounded corners) is to the LEFT of the flow section
+- The flow section and sidebar are aligned at the same Y position
+- Between the title flow and the sidebar/flow section there is a 114px gap
+
+### What `screen-annotations.png` shows:
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  Screen frame (transparent, 861x864px)                               │
+│                                                                      │
+│   ┌──────────────────┐      ┌──────────────────────────────────┐    │
+│   │  DEVICE SCREEN   │      │ ① Label Card 1                  │    │
+│   │  (cloned, not    │      │    [H] "Screen title"            │    │
+│   │   rebuilt)        │      └──────────────────────────────────┘    │
+│   │                  │      18px gap                                 │
+│   │  ┌─── ② ───────┐│      ┌──────────────────────────────────┐    │
+│   │  │ Highlight    ││      │ ② Label Card 2                  │    │
+│   │  │ (stroke only)││      │    [Label] "Section label"       │    │
+│   │  └──────────────┘│      └──────────────────────────────────┘    │
+│   │                  │      18px gap                                 │
+│   │  ┌── ③ ────────┐│      ┌──────────────────────────────────┐    │
+│   │  │ Highlight   ②││      │ ③ Label Card 3                  │    │
+│   │  └──────────────┘│      │    [Button] "Add new card"       │    │
+│   │                  │      └──────────────────────────────────┘    │
+│   └──────────────────┘                                              │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**Key visual details:**
+
+1. **Device screen** (left side): The original Figma screen is CLONED (not rebuilt). It shows real app content.
+2. **Highlight rectangles** (on the device): Colored rectangles with **stroke only, NO fill**. Each wraps a specific component — NOT a full-width band across the screen. Corner radius 8px, stroke weight 2px.
+3. **Badge circles** (on the device): Small **24x24 pixel circles** positioned at the bottom-right corner of each highlight. Colored to match the tag type (green/blue/purple). Contains a white number (1, 2, 3...). **Perfect circles — never stretched or squished.**
+4. **Label cards** (right side): Colored rounded rectangles stacked vertically with 18px gap between each. Each card contains:
+   - A white badge circle (24x24) with the number in black
+   - Tag type in JetBrains Mono Bold 14px (e.g., "Button", "Label", "H")
+   - Accessibility name in JetBrains Mono Regular 10px (e.g., `"Payment"`)
+5. **ALL label cards are on the RIGHT** — never on the left, top, or bottom.
+6. **NO connecting lines** — labels are matched to components by number only.
+7. **Colors:**
+   - Button = green `rgb(41,130,11)`
+   - Label = blue `rgb(39,72,113)`
+   - H = purple `rgb(37,41,169)`
+   - Group = red dashed outline `rgb(218,67,12)`
+   - Ignore = gray overlay `rgb(153,153,153)` at 30% opacity
+
+---
+
+## How to Get the PNGs
+
+### Option 1: They're already in this folder
+
+If you cloned the repository, the PNGs should already be at:
+- `examples/reference/full-handoff.png` (245 KB)
+- `examples/reference/screen-annotations.png` (161 KB)
+
+### Option 2: Download from GitHub
 
 ```bash
 # Full hand-off layout
-curl -o examples/reference/full-handoff.png \
-  "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/dc09ad18-aac6-4a23-a954-389bcbef4e6b"
+curl -L -o full-handoff.png \
+  "https://raw.githubusercontent.com/saralobo/acessibility-handoff-1.0/main/examples/reference/full-handoff.png"
 
-# Model hand-off close-up
-curl -o examples/reference/screen-annotations.png \
-  "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/86b8998e-fa72-4567-ae9a-2b75bda5231c"
+# Screen annotations close-up
+curl -L -o screen-annotations.png \
+  "https://raw.githubusercontent.com/saralobo/acessibility-handoff-1.0/main/examples/reference/screen-annotations.png"
 ```
 
-If URLs have expired, re-export from the Figma file:
+### Option 3: Re-export from Figma
+
+If the PNGs are missing or outdated:
 1. Open [Acessibility-Handoff](https://www.figma.com/design/aqy23dQskm8cbPL051MDYo/Acessibility-Handoff)
 2. Navigate to the "hand-off v2" page (node 5:1884) for the full layout
-3. Navigate to the "sample" page → "Model Hand-off" section (node 3:820) for the close-up
+3. Navigate to the "sample" page, "Model Hand-off" section (node 3:820) for the close-up
 4. Export as PNG at 2x scale
 5. Save to this folder
 
-## What to Look For
+---
 
-When studying these references, pay attention to:
+## Remember
 
-- **Badge circles are perfect circles** — 24x24 pixels, never stretched or squished
-- **Highlights wrap individual components** — not full-width bands
-- **Label cards are on the RIGHT** — never on the left or overlapping the device
-- **No connecting lines** — labels are matched to components by number only
-- **Card spacing is consistent** — ~18px gap between each label card
-- **Text auto-resizes** — cards expand to fit content, never truncated
-- **Colors match tag types** — green (Button), blue (Label), purple (H)
+Even if your tool cannot view the PNGs, the system still works correctly because:
+- `build-handoff.js` creates all visual elements deterministically (same JSON = same output)
+- `verify-handoff.js` runs 18 objective checks to catch any visual problems
+- The text descriptions above explain exactly what the output should look like
+- The JSON schema + example JSON define the exact data structure
+
+The PNGs are a helpful visual reference, but the **scripts are the real enforcement layer**.
