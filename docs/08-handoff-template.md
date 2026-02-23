@@ -127,7 +127,7 @@ Hand-off (SECTION, white)
 - Header frame: `Title flow`
 - Text frame inside header: `Text`
 - Text layers: `HEADLINE`, `{Title flow}` (with actual title), `Description`
-- Sidebar group: `{Sub-flow name}` (e.g., "Flujo MLB")
+- Sidebar group: `{Sub-flow name}` (e.g., "Checkout flow")
 - Sidebar frame: unnamed (auto-generated)
 - Flow section: `{Flow name}` (e.g., "Payment flow")
 - Screen frames: `Screen {1}`, `Screen {2}`, etc.
