@@ -1,0 +1,90 @@
+{
+  "screen": {
+    "name": "Payment",
+    "nodeId": "1:221",
+    "figmaUrl": "https://www.figma.com/design/aqy23dQskm8cbPL051MDYo/Acessibility-Handoff?node-id=1-221"
+  },
+  "template": {
+    "headline": "CHECKOUT FLOW",
+    "title": "Payment",
+    "description": "Payment method selection and card management screens",
+    "subflowLabel": "Sub-flow",
+    "flowName": "Payment flow"
+  },
+  "annotations": [
+    {
+      "order": 1,
+      "componentName": "Screen title",
+      "tagType": "H",
+      "side": "direita",
+      "accessibilityName": "\"Payment\"",
+      "role": "heading"
+    },
+    {
+      "order": 2,
+      "componentName": "Section label",
+      "tagType": "Label",
+      "side": "direita",
+      "accessibilityName": "\"Credit card\"",
+      "role": "text"
+    },
+    {
+      "order": 3,
+      "componentName": "Menu button",
+      "tagType": "Button",
+      "side": "baixo",
+      "accessibilityName": "\"All tools\"",
+      "role": "button",
+      "state": "ACTION: Open menu"
+    },
+    {
+      "order": 4,
+      "componentName": "Card 1",
+      "tagType": "Label",
+      "side": "direita",
+      "accessibilityName": "\"Card 1\"",
+      "role": "text"
+    },
+    {
+      "order": 5,
+      "componentName": "Card 2",
+      "tagType": "Label",
+      "side": "direita",
+      "accessibilityName": "\"Card 2\"",
+      "role": "text"
+    },
+    {
+      "order": 6,
+      "componentName": "Scan button",
+      "tagType": "Button",
+      "side": "esquerda",
+      "accessibilityName": "\"Scan\"",
+      "role": "button",
+      "state": "ACTION: Open scanner"
+    },
+    {
+      "order": 0,
+      "componentName": "Card 1 group",
+      "tagType": "Group",
+      "side": "direita",
+      "accessibilityName": "Credit card group",
+      "role": "group"
+    },
+    {
+      "order": 0,
+      "componentName": "Card 2 group",
+      "tagType": "Group",
+      "side": "direita",
+      "accessibilityName": "Credit card group",
+      "role": "group"
+    },
+    {
+      "order": 0,
+      "componentName": "Status bar icons",
+      "tagType": "Ignore",
+      "side": "direita",
+      "accessibilityName": "Decorative",
+      "role": "none"
+    }
+  ]
+}
