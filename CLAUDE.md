@@ -1,8 +1,8 @@
-# Accessibility Hand-off System v2
+# Accessibility Hand-off System v2.1
 
-This repository produces screen reader accessibility annotations in Figma. It uses a **JSON-driven architecture**: the AI analyzes, the script builds.
+This repository produces screen reader accessibility annotations in Figma. It uses a **JSON-driven architecture**: the AI analyzes, the script builds, then verification confirms the result.
 
-## Your Job: TWO Tasks Only
+## Your Job: THREE Tasks
 
 ### Task 1 — ANALYZE (you do this)
 
@@ -13,12 +13,29 @@ This repository produces screen reader accessibility annotations in Figma. It us
 5. Output a JSON matching `schema/handoff-data.schema.json`
 6. See `examples/payment-screen.json` for a complete reference
 
+**Note:** There is NO `side` field. All label cards appear on the right side automatically.
+
 ### Task 2 — BUILD (the script does this)
 
 1. Paste the contents of `figma/build-handoff.js` into a `figma_execute` call
 2. Pass your JSON as the `data` parameter to `buildHandoff(data)`
-3. The script creates the entire hand-off layout deterministically
-4. Take a screenshot of the result to verify
+3. The script creates the entire hand-off layout:
+   - Template (Section + Title flow + Sidebar + Flow section)
+   - Cloned screen
+   - Numbered badge circles ON each component
+   - Colored highlight rectangles around components
+   - Label cards stacked on the RIGHT side
+   - NO lines (v2.1 design)
+
+### Task 3 — VERIFY (mandatory, cannot skip)
+
+1. Paste the contents of `figma/verify-handoff.js` into a `figma_execute` call
+2. Call `verifyHandoff(screenFrameId, annotationCount)` with the IDs from Task 2
+3. Post the FULL PASS/FAIL report to the user
+4. If ANY check returns FAIL, fix the issue and re-run verification
+5. You may NOT say "done" or "looks good" until ALL checks return PASS
+
+**You do not have permission to give subjective opinions about the result.** Only the verify script decides if the output is correct.
 
 ## You Must NEVER
 
@@ -28,6 +45,17 @@ This repository produces screen reader accessibility annotations in Figma. It us
 - Skip the JSON step and go straight to building
 - Improvise colors, fonts, spacing, or any visual property
 - Rebuild screens from scratch (always clone via nodeId)
+- Create connecting lines between tags and components (v2.1 has NO lines)
+- Say "done" or "looks good" before verify-handoff.js returns all PASS
+- Give subjective opinions about the visual result
+
+## v2.1 Design
+
+The hand-off uses this layout:
+- Screen on the LEFT with numbered badges ON components and colored highlight rectangles
+- Label cards stacked vertically on the RIGHT side of the screen
+- NO lines connecting anything
+- Ignore areas shown as hatched gray overlays
 
 ## Reading Order Principles
 
@@ -36,26 +64,17 @@ This repository produces screen reader accessibility annotations in Figma. It us
 3. Top-down within sections — headings before content
 4. Group before detail — section name before items inside
 5. Status before action — current state before the button that changes it
-6. Decorative = skip — no number for Ignore Area elements
+6. Decorative = skip — order: 0 for Ignore elements
 
 ## Tag Types
 
 | Type | Color | When to use |
 |------|-------|-------------|
-| Button | Green | Interactive elements (buttons, links, toggles) |
-| Label | Blue | Text content, descriptions, values |
-| H | Purple | Section headings, screen titles |
-| Group | Red | Outline around related items |
-| Ignore | Gray | Overlay on decorative elements |
-
-## Side Naming
-
-| Name | Tag position | Line goes toward |
-|------|-------------|------------------|
-| direita | LEFT of screen | → RIGHT toward component |
-| esquerda | RIGHT of screen | ← LEFT toward component |
-| baixo | TOP of screen | ↓ DOWN toward component |
-| cima | BOTTOM of screen | ↑ UP toward component |
+| Button | Green `rgb(41,130,11)` | Interactive elements (buttons, links, toggles) |
+| Label | Blue `rgb(39,72,113)` | Text content, descriptions, values |
+| H | Purple `rgb(37,41,169)` | Section headings, screen titles |
+| Group | Red `rgb(218,67,12)` | Outline around related items |
+| Ignore | Gray `rgb(153,153,153)` | Overlay on decorative elements |
 
 ## File Index
 
@@ -64,35 +83,26 @@ This repository produces screen reader accessibility annotations in Figma. It us
 | `schema/handoff-data.schema.json` | JSON format spec | Before generating JSON |
 | `examples/payment-screen.json` | Complete example | Before generating JSON |
 | `figma/build-handoff.js` | Build script | Execute after JSON is ready |
-| `docs/09-ai-reasoning-chain.md` | Analysis thinking process | During Task 1 |
+| `figma/verify-handoff.js` | QA verification | Execute after build |
+| `docs/09-ai-reasoning-chain.md` | Analysis process | During Task 1 |
 | `docs/10-anti-patterns.md` | Mistakes to avoid | During Task 1 |
-| `docs/11-component-detection.md` | Finding element boundaries | During Task 1 |
-| `figma/detect-components.js` | Programmatic detection | Optional, for live frames |
-| `figma/validate-handoff.js` | Post-build validation | After Task 2 |
-| `figma/repair-tag.js` | Auto-fix issues | If validation fails |
 
 ## Quick Start Example
 
 ```
 User: "Create an accessibility hand-off for the Login screen (node 1:221)"
 
-You (Task 1):
-→ Screenshot the screen
-→ Identify: title heading, email input, password input, login button, forgot password link, sign up link
-→ Define reading order
-→ Generate JSON:
-{
-  "screen": { "name": "Login", "nodeId": "1:221" },
-  "template": { "headline": "AUTH FLOW", "title": "Login", ... },
-  "annotations": [
-    { "order": 1, "tagType": "H", "side": "direita", ... },
-    ...
-  ]
-}
+Task 1 (ANALYZE):
+-> Screenshot the screen
+-> Generate JSON with annotations
 
-You (Task 2):
-→ Paste figma/build-handoff.js into figma_execute
-→ Call buildHandoff(data) with your JSON
-→ Screenshot the result to verify
-→ Done.
+Task 2 (BUILD):
+-> Execute build-handoff.js with JSON
+-> Get screenFrameId from result
+
+Task 3 (VERIFY):
+-> Execute verify-handoff.js with screenFrameId
+-> Post PASS/FAIL report
+-> If all PASS: "Done. Verification report: 10/10 checks passed."
+-> If any FAIL: fix and re-verify
 ```

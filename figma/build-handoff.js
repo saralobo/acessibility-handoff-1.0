@@ -1,17 +1,21 @@
 /**
- * build-handoff.js — Deterministic Handoff Builder
+ * build-handoff.js v2.1 — Deterministic Handoff Builder (No Lines)
  *
- * This is the ONLY script that creates visual output in Figma.
- * It receives a structured JSON (matching schema/handoff-data.schema.json)
- * and produces an identical hand-off layout every time.
+ * Creates accessibility hand-off annotations in Figma.
  *
- * The AI's job is to ANALYZE and produce the JSON.
- * This script's job is to BUILD the visual output.
- * These two concerns must NEVER be mixed.
+ * v2.1 design:
+ *   - NO lines connecting tags to components
+ *   - Label cards always stacked on the RIGHT side of the screen
+ *   - Numbered badge circles placed ON each component on the screen
+ *   - Colored highlight rectangles around components on the screen
+ *   - Hatched gray overlay for Ignore areas
+ *
+ * The AI produces JSON (schema/handoff-data.schema.json).
+ * This script consumes it. Same input = same output, always.
  *
  * Usage via figma_execute:
  *   const data = { screen: {...}, template: {...}, annotations: [...] };
- *   // paste this entire script, then call:
+ *   // paste this entire script, then:
  *   const result = await buildHandoff(data);
  *   return result;
  */
@@ -57,26 +61,28 @@ const TAG_SPEC = {
   boxItemSpacing: 8,
   badgeSize: 22,
   badgeRadius: 11,
-  badgeFontSize: 10,
+  badgeFontSize: 9.3,
   typeFontSize: 14,
-  labelFontSize: 12,
-  stateFontSize: 10,
-  lineWeight: 2,
-  lineFrameThickness: 4,
-  stackGap: 32
+  nameFontSize: 10,
+  labelCardGap: 18,
+  badgeOnScreenSize: 22,
+  highlightPadding: 6,
+  highlightStrokeWeight: 2,
+  highlightCornerRadius: 8
 };
 
 async function buildHandoff(data) {
   await figma.loadFontAsync({ family: 'JetBrains Mono', style: 'Bold' });
   await figma.loadFontAsync({ family: 'JetBrains Mono', style: 'Regular' });
+  await figma.loadFontAsync({ family: 'Roboto', style: 'Bold' });
   await figma.loadFontAsync({ family: 'Roboto', style: 'Regular' });
   await figma.loadFontAsync({ family: 'Roboto', style: 'SemiBold' });
 
   const T = TEMPLATE;
-  const screenCount = 1;
+  const S = TAG_SPEC;
 
   // --- Calculate dimensions ---
-  const flowSectionW = T.screenLeftPad + (T.screenW * screenCount) + T.screenRightPad;
+  const flowSectionW = T.screenLeftPad + T.screenW + T.screenRightPad;
   const flowSectionH = T.screenTopPad + T.screenH + T.screenBottomPad;
   const titleFlowW = T.sidebarW + T.sidebarToFlowGap + flowSectionW;
   const totalW = T.sectionMarginLeft + titleFlowW + 247;
@@ -125,7 +131,7 @@ async function buildHandoff(data) {
 
   const titleText = figma.createText();
   titleText.fontName = { family: 'Roboto', style: 'SemiBold' };
-  titleText.characters = data.template.title || '{Title flow}';
+  titleText.characters = data.template.title || '{Title}';
   titleText.fontSize = 200;
   titleText.fills = [{ type: 'SOLID', color: T.white }];
   titleText.textAutoResize = 'WIDTH_AND_HEIGHT';
@@ -193,213 +199,157 @@ async function buildHandoff(data) {
       screenFrame.appendChild(deviceFrame);
       const scale = Math.min(T.deviceW / deviceFrame.width, T.deviceH / deviceFrame.height);
       deviceFrame.rescale(scale);
-      deviceFrame.x = Math.round((T.screenW - deviceFrame.width) / 2);
-      deviceFrame.y = Math.round((T.screenH - deviceFrame.height) / 2);
+      deviceFrame.x = 0;
+      deviceFrame.y = 0;
     }
   } catch (e) {
-    // Fallback: create placeholder
     deviceFrame = figma.createFrame();
     deviceFrame.name = data.screen.name || '{Screen}';
     screenFrame.appendChild(deviceFrame);
     deviceFrame.resize(T.deviceW, T.deviceH);
-    deviceFrame.x = Math.round((T.screenW - T.deviceW) / 2);
-    deviceFrame.y = Math.round((T.screenH - T.deviceH) / 2);
+    deviceFrame.x = 0;
+    deviceFrame.y = 0;
     deviceFrame.fills = [{ type: 'SOLID', color: T.white }];
     deviceFrame.cornerRadius = T.deviceCornerRadius;
   }
 
-  const deviceBB = { x: deviceFrame.x, y: deviceFrame.y, w: deviceFrame.width, h: deviceFrame.height };
+  const devW = deviceFrame.width;
+  const devH = deviceFrame.height;
+  const devX = deviceFrame.x;
+  const devY = deviceFrame.y;
 
-  // --- 7. Build annotation tags ---
-  const sides = { direita: [], esquerda: [], baixo: [], cima: [] };
-  const tagAnnotations = data.annotations.filter(a => a.tagType !== 'Group' && a.tagType !== 'Ignore');
-  const groupAnnotations = data.annotations.filter(a => a.tagType === 'Group');
-  const ignoreAnnotations = data.annotations.filter(a => a.tagType === 'Ignore');
+  // --- 7. Filter annotations ---
+  const numbered = data.annotations.filter(a => a.order > 0).sort((a, b) => a.order - b.order);
+  const ignores = data.annotations.filter(a => a.tagType === 'Ignore');
 
-  for (const ann of tagAnnotations) {
-    if (!sides[ann.side]) continue;
-    sides[ann.side].push(ann);
-  }
+  // --- 8. Place badge circles ON the screen + highlight rectangles ---
+  const badgePositions = [];
+  const rowHeight = Math.floor(devH / (numbered.length + 1));
 
-  for (const side in sides) {
-    const tags = sides[side];
-    const isHorizontal = (side === 'direita' || side === 'esquerda');
-    let offset = 0;
+  for (let i = 0; i < numbered.length; i++) {
+    const ann = numbered[i];
+    const color = TAG_COLORS[ann.tagType] || TAG_COLORS.Label;
+    const posY = devY + rowHeight * (i + 1) - S.badgeOnScreenSize / 2;
 
-    for (let i = 0; i < tags.length; i++) {
-      const ann = tags[i];
-      const color = TAG_COLORS[ann.tagType];
-      const S = TAG_SPEC;
-
-      // Root frame
-      const root = figma.createFrame();
-      root.name = ann.tagType + ' ' + side;
-      root.layoutMode = isHorizontal ? 'HORIZONTAL' : 'VERTICAL';
-      root.primaryAxisSizingMode = 'FIXED';
-      root.counterAxisSizingMode = 'AUTO';
-      root.counterAxisAlignItems = 'CENTER';
-      root.itemSpacing = 0;
-      root.fills = [];
-      root.clipsContent = false;
-
-      // Tag box
-      const tagBox = figma.createFrame();
-      tagBox.name = 'Tag';
-      tagBox.layoutMode = 'HORIZONTAL';
-      tagBox.paddingTop = S.boxPadT;
-      tagBox.paddingRight = S.boxPadR;
-      tagBox.paddingBottom = S.boxPadB;
-      tagBox.paddingLeft = S.boxPadL;
-      tagBox.itemSpacing = S.boxItemSpacing;
-      tagBox.cornerRadius = S.boxCornerRadius;
-      tagBox.fills = [{ type: 'SOLID', color: color }];
-      tagBox.counterAxisAlignItems = 'CENTER';
-
-      // Badge (only if order > 0)
-      if (ann.order > 0) {
-        const badge = figma.createEllipse();
-        badge.name = 'Badge';
-        badge.resize(S.badgeSize, S.badgeSize);
-        badge.fills = [{ type: 'SOLID', color: T.white }];
-        tagBox.appendChild(badge);
-
-        const badgeNum = figma.createText();
-        badgeNum.fontName = { family: 'JetBrains Mono', style: 'Bold' };
-        badgeNum.characters = String(ann.order);
-        badgeNum.fontSize = S.badgeFontSize;
-        badgeNum.fills = [{ type: 'SOLID', color: T.black }];
-        badgeNum.textAutoResize = 'WIDTH_AND_HEIGHT';
-        badgeNum.textAlignHorizontal = 'CENTER';
-        tagBox.appendChild(badgeNum);
-      }
-
-      // Content frame
-      const content = figma.createFrame();
-      content.name = 'Content';
-      content.layoutMode = 'VERTICAL';
-      content.fills = [];
-      content.itemSpacing = 2;
-      tagBox.appendChild(content);
-
-      // Type text
-      const typeText = figma.createText();
-      typeText.fontName = { family: 'JetBrains Mono', style: 'Bold' };
-      typeText.characters = ann.tagType;
-      typeText.fontSize = S.typeFontSize;
-      typeText.fills = [{ type: 'SOLID', color: T.white }];
-      typeText.textAutoResize = 'WIDTH_AND_HEIGHT';
-      content.appendChild(typeText);
-
-      // Label text
-      const labelText = figma.createText();
-      labelText.fontName = { family: 'JetBrains Mono', style: 'Regular' };
-      labelText.characters = ann.accessibilityName;
-      labelText.fontSize = S.labelFontSize;
-      labelText.fills = [{ type: 'SOLID', color: T.white }];
-      labelText.textAutoResize = 'WIDTH_AND_HEIGHT';
-      content.appendChild(labelText);
-
-      // State text (Button only)
-      if (ann.state && ann.tagType === 'Button') {
-        const stateText = figma.createText();
-        stateText.fontName = { family: 'JetBrains Mono', style: 'Regular' };
-        stateText.characters = ann.state;
-        stateText.fontSize = S.stateFontSize;
-        stateText.fills = [{ type: 'SOLID', color: T.white }];
-        stateText.textAutoResize = 'WIDTH_AND_HEIGHT';
-        content.appendChild(stateText);
-      }
-
-      // Line frame with vector
-      const lineFrame = figma.createFrame();
-      lineFrame.name = 'Line';
-      lineFrame.fills = [];
-      lineFrame.clipsContent = false;
-
-      const lineVector = figma.createVector();
-      lineVector.name = 'Line';
-      lineVector.strokes = [{ type: 'SOLID', color: color }];
-      lineVector.strokeWeight = S.lineWeight;
-      lineVector.fills = [];
-      lineFrame.appendChild(lineVector);
-
-      // Assemble based on side
-      if (side === 'direita' || side === 'baixo') {
-        root.appendChild(tagBox);
-        root.appendChild(lineFrame);
-      } else {
-        root.appendChild(lineFrame);
-        root.appendChild(tagBox);
-      }
-
-      // Set sizing AFTER appendChild
-      tagBox.layoutSizingHorizontal = 'HUG';
-      tagBox.layoutSizingVertical = 'HUG';
-      content.layoutSizingHorizontal = 'HUG';
-      content.layoutSizingVertical = 'HUG';
-
-      if (isHorizontal) {
-        lineFrame.resize(100, S.lineFrameThickness);
-        lineFrame.layoutSizingHorizontal = 'FILL';
-        lineFrame.layoutSizingVertical = 'FIXED';
-        lineVector.vectorPaths = [{ windingRule: 'NONE', data: 'M 0 ' + (S.lineFrameThickness/2) + ' L 100 ' + (S.lineFrameThickness/2) }];
-        lineVector.constraints = { horizontal: 'STRETCH', vertical: 'CENTER' };
-      } else {
-        lineFrame.resize(S.lineFrameThickness, 100);
-        lineFrame.layoutSizingHorizontal = 'FIXED';
-        lineFrame.layoutSizingVertical = 'FILL';
-        lineVector.vectorPaths = [{ windingRule: 'NONE', data: 'M ' + (S.lineFrameThickness/2) + ' 0 L ' + (S.lineFrameThickness/2) + ' 100' }];
-        lineVector.constraints = { horizontal: 'CENTER', vertical: 'STRETCH' };
-      }
-
-      // Position the tag
-      screenFrame.appendChild(root);
-
-      if (side === 'direita') {
-        root.resize(deviceBB.x + 30, root.height);
-        root.x = deviceBB.x - root.width;
-        root.y = deviceBB.y + 40 + offset;
-      } else if (side === 'esquerda') {
-        root.resize(T.screenW - (deviceBB.x + deviceBB.w) + 30, root.height);
-        root.x = deviceBB.x + deviceBB.w - 30;
-        root.y = deviceBB.y + 40 + offset;
-      } else if (side === 'baixo') {
-        root.resize(root.width, deviceBB.y + 30);
-        root.x = deviceBB.x + 20 + offset;
-        root.y = 0;
-      } else if (side === 'cima') {
-        root.resize(root.width, T.screenH - (deviceBB.y + deviceBB.h) + 30);
-        root.x = deviceBB.x + 20 + offset;
-        root.y = deviceBB.y + deviceBB.h - 30;
-      }
-
-      offset += root.height + S.stackGap;
+    // Highlight rectangle around estimated component area
+    if (ann.tagType !== 'Group') {
+      const highlight = figma.createFrame();
+      highlight.name = 'Highlight ' + ann.order;
+      highlight.fills = [];
+      highlight.strokes = [{ type: 'SOLID', color: color }];
+      highlight.strokeWeight = S.highlightStrokeWeight;
+      highlight.cornerRadius = S.highlightCornerRadius;
+      highlight.resize(devW - S.highlightPadding * 2, rowHeight - 8);
+      highlight.x = devX + S.highlightPadding;
+      highlight.y = devY + rowHeight * i + 4;
+      screenFrame.appendChild(highlight);
     }
+
+    // Badge circle on screen
+    const badgeGroup = figma.createFrame();
+    badgeGroup.name = 'Badge ' + ann.order;
+    badgeGroup.resize(S.badgeOnScreenSize, S.badgeOnScreenSize);
+    badgeGroup.fills = [{ type: 'SOLID', color: color }];
+    badgeGroup.cornerRadius = S.badgeRadius;
+    badgeGroup.layoutMode = 'HORIZONTAL';
+    badgeGroup.counterAxisAlignItems = 'CENTER';
+    badgeGroup.primaryAxisAlignItems = 'CENTER';
+
+    const badgeNumOnScreen = figma.createText();
+    badgeNumOnScreen.fontName = { family: 'Roboto', style: 'Bold' };
+    badgeNumOnScreen.characters = String(ann.order);
+    badgeNumOnScreen.fontSize = S.badgeFontSize;
+    badgeNumOnScreen.fills = [{ type: 'SOLID', color: T.white }];
+    badgeNumOnScreen.textAutoResize = 'WIDTH_AND_HEIGHT';
+    badgeGroup.appendChild(badgeNumOnScreen);
+
+    badgeGroup.x = devX + devW - S.badgeOnScreenSize - 4;
+    badgeGroup.y = posY;
+    screenFrame.appendChild(badgeGroup);
+
+    badgePositions.push({ order: ann.order, y: posY });
   }
 
-  // --- 8. Group outlines ---
-  for (const ann of groupAnnotations) {
-    const groupOutline = figma.createFrame();
-    groupOutline.name = 'Group';
-    groupOutline.fills = [];
-    groupOutline.strokes = [{ type: 'SOLID', color: TAG_COLORS.Group }];
-    groupOutline.strokeWeight = 2;
-    groupOutline.cornerRadius = 8;
-    groupOutline.resize(deviceBB.w + 20, 80);
-    groupOutline.x = deviceBB.x - 10;
-    groupOutline.y = deviceBB.y + deviceBB.h * 0.3;
-    screenFrame.appendChild(groupOutline);
+  // --- 9. Ignore area overlays ---
+  for (const ann of ignores) {
+    const ignoreRect = figma.createFrame();
+    ignoreRect.name = 'Ignore Area';
+    ignoreRect.fills = [{ type: 'SOLID', color: TAG_COLORS.Ignore, opacity: 0.3 }];
+    ignoreRect.resize(54, 49);
+    ignoreRect.x = devX + 36;
+    ignoreRect.y = devY + devH - 90;
+    screenFrame.appendChild(ignoreRect);
   }
 
-  // --- 9. Ignore areas ---
-  for (const ann of ignoreAnnotations) {
-    const ignoreArea = figma.createFrame();
-    ignoreArea.name = 'Ignore Area';
-    ignoreArea.fills = [{ type: 'SOLID', color: TAG_COLORS.Ignore, opacity: 0.3 }];
-    ignoreArea.resize(54, 49);
-    ignoreArea.x = deviceBB.x + 36;
-    ignoreArea.y = deviceBB.y + deviceBB.h - 90;
-    screenFrame.appendChild(ignoreArea);
+  // --- 10. Label cards on the RIGHT side ---
+  const labelStartX = devX + devW + 25;
+  let labelY = devY;
+
+  for (const ann of numbered) {
+    const color = TAG_COLORS[ann.tagType] || TAG_COLORS.Label;
+
+    const card = figma.createFrame();
+    card.name = ann.tagType + ' ' + ann.order;
+    card.layoutMode = 'HORIZONTAL';
+    card.paddingTop = S.boxPadT;
+    card.paddingRight = S.boxPadR;
+    card.paddingBottom = S.boxPadB;
+    card.paddingLeft = S.boxPadL;
+    card.itemSpacing = S.boxItemSpacing;
+    card.cornerRadius = S.boxCornerRadius;
+    card.fills = [{ type: 'SOLID', color: color }];
+    card.counterAxisAlignItems = 'CENTER';
+
+    // Badge circle
+    const badge = figma.createEllipse();
+    badge.name = 'Badge';
+    badge.resize(S.badgeSize, S.badgeSize);
+    badge.fills = [{ type: 'SOLID', color: T.white }];
+    card.appendChild(badge);
+
+    const badgeNum = figma.createText();
+    badgeNum.fontName = { family: 'Roboto', style: 'Bold' };
+    badgeNum.characters = String(ann.order);
+    badgeNum.fontSize = S.badgeFontSize;
+    badgeNum.fills = [{ type: 'SOLID', color: T.black }];
+    badgeNum.textAutoResize = 'WIDTH_AND_HEIGHT';
+    card.appendChild(badgeNum);
+
+    // Content
+    const content = figma.createFrame();
+    content.name = 'Content';
+    content.layoutMode = 'VERTICAL';
+    content.fills = [];
+    content.itemSpacing = 2;
+    card.appendChild(content);
+
+    const typeText = figma.createText();
+    typeText.fontName = { family: 'JetBrains Mono', style: 'Bold' };
+    typeText.characters = ann.tagType;
+    typeText.fontSize = S.typeFontSize;
+    typeText.fills = [{ type: 'SOLID', color: T.white }];
+    typeText.textAutoResize = 'WIDTH_AND_HEIGHT';
+    content.appendChild(typeText);
+
+    const nameText = figma.createText();
+    nameText.fontName = { family: 'JetBrains Mono', style: 'Regular' };
+    nameText.characters = ann.accessibilityName;
+    nameText.fontSize = S.nameFontSize;
+    nameText.fills = [{ type: 'SOLID', color: T.white }];
+    nameText.textAutoResize = 'WIDTH_AND_HEIGHT';
+    content.appendChild(nameText);
+
+    // Set HUG sizing AFTER appendChild
+    card.layoutSizingHorizontal = 'HUG';
+    card.layoutSizingVertical = 'HUG';
+    content.layoutSizingHorizontal = 'HUG';
+    content.layoutSizingVertical = 'HUG';
+
+    screenFrame.appendChild(card);
+    card.x = labelStartX;
+    card.y = labelY;
+
+    labelY += card.height + S.labelCardGap;
   }
 
   figma.viewport.scrollAndZoomIntoView([section]);
@@ -408,8 +358,7 @@ async function buildHandoff(data) {
     success: true,
     sectionId: section.id,
     screenFrameId: screenFrame.id,
-    tagCount: tagAnnotations.length,
-    groupCount: groupAnnotations.length,
-    ignoreCount: ignoreAnnotations.length
+    annotationCount: numbered.length,
+    ignoreCount: ignores.length
   };
 }

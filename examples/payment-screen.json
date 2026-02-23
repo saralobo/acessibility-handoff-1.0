@@ -16,15 +16,13 @@
       "order": 1,
       "componentName": "Screen title",
       "tagType": "H",
-      "side": "direita",
-      "accessibilityName": "\"Payment\"",
+      "accessibilityName": "\"Payments\"",
       "role": "heading"
     },
     {
       "order": 2,
       "componentName": "Section label",
       "tagType": "Label",
-      "side": "direita",
       "accessibilityName": "\"Credit card\"",
       "role": "text"
     },
@@ -32,57 +30,44 @@
       "order": 3,
       "componentName": "Menu button",
       "tagType": "Button",
-      "side": "baixo",
       "accessibilityName": "\"All tools\"",
       "role": "button",
       "state": "ACTION: Open menu"
     },
     {
       "order": 4,
+      "componentName": "Settings button",
+      "tagType": "Button",
+      "accessibilityName": "\"All tools\"",
+      "role": "button",
+      "state": "ACTION: Open settings"
+    },
+    {
+      "order": 5,
       "componentName": "Card 1",
       "tagType": "Label",
-      "side": "direita",
       "accessibilityName": "\"Card 1\"",
       "role": "text"
     },
     {
-      "order": 5,
+      "order": 6,
       "componentName": "Card 2",
       "tagType": "Label",
-      "side": "direita",
       "accessibilityName": "\"Card 2\"",
       "role": "text"
     },
     {
-      "order": 6,
-      "componentName": "Scan button",
+      "order": 7,
+      "componentName": "Add new card button",
       "tagType": "Button",
-      "side": "esquerda",
-      "accessibilityName": "\"Scan\"",
+      "accessibilityName": "\"Add new card\"",
       "role": "button",
-      "state": "ACTION: Open scanner"
-    },
-    {
-      "order": 0,
-      "componentName": "Card 1 group",
-      "tagType": "Group",
-      "side": "direita",
-      "accessibilityName": "Credit card group",
-      "role": "group"
-    },
-    {
-      "order": 0,
-      "componentName": "Card 2 group",
-      "tagType": "Group",
-      "side": "direita",
-      "accessibilityName": "Credit card group",
-      "role": "group"
+      "state": "ACTION: Add card"
     },
     {
       "order": 0,
       "componentName": "Status bar icons",
       "tagType": "Ignore",
-      "side": "direita",
       "accessibilityName": "Decorative",
       "role": "none"
     }

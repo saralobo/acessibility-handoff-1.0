@@ -29,20 +29,19 @@
     },
     "annotations": {
       "type": "array",
-      "description": "Ordered list of accessibility annotations. Array order = reading order.",
+      "description": "Ordered list of accessibility annotations. All label cards appear on the RIGHT side of the screen. Array order = reading order.",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["order", "componentName", "tagType", "side", "accessibilityName", "role"],
+        "required": ["order", "componentName", "tagType", "accessibilityName", "role"],
         "properties": {
           "order": { "type": "integer", "minimum": 0, "description": "Reading order number for badge. Use 0 for Group/Ignore (no badge)." },
           "componentName": { "type": "string", "description": "Human name of the target component" },
-          "tagType": { "type": "string", "enum": ["Button", "Label", "H", "Group", "Ignore"], "description": "Button=green, Label=blue, H=purple, Group=red outline, Ignore=gray overlay" },
-          "side": { "type": "string", "enum": ["direita", "esquerda", "baixo", "cima"], "description": "direita=tag LEFT line RIGHT, esquerda=tag RIGHT line LEFT, baixo=tag TOP line DOWN, cima=tag BOTTOM line UP" },
+          "tagType": { "type": "string", "enum": ["Button", "Label", "H", "Group", "Ignore"], "description": "Button=green, Label=blue, H=purple, Group=red outline, Ignore=gray hatched overlay" },
           "accessibilityName": { "type": "string", "description": "What the screen reader announces" },
           "role": { "type": "string", "description": "ARIA role or element type" },
           "state": { "type": "string", "description": "Optional state/action (Button tags only)" },
-          "targetNodeId": { "type": "string", "description": "Optional Figma node ID for programmatic detection" }
+          "targetNodeId": { "type": "string", "description": "Optional Figma node ID for programmatic position detection" }
         }
       }
     }

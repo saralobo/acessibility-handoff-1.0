@@ -1,6 +1,6 @@
-# 09 - AI Reasoning Chain (v2)
+# 09 - AI Reasoning Chain (v2.1)
 
-This document defines the thinking process for the ANALYSIS phase of an accessibility hand-off. The AI analyzes and produces JSON. The build script handles all visual construction.
+This document defines the thinking process for the ANALYSIS phase of an accessibility hand-off. The AI analyzes and produces JSON. The build script handles all visual construction. The verify script confirms correctness.
 
 ## Phase 0: Pre-flight Checks
 
@@ -19,34 +19,34 @@ This document defines the thinking process for the ANALYSIS phase of an accessib
 1. Call `figma_take_screenshot` of the target screen at scale 2-3
 2. Identify every interactive element, text block, heading, image, and icon
 3. Classify each element:
-   - **Heading** → H tag (purple)
-   - **Text content** → Label tag (blue)
-   - **Interactive element** (button, link, toggle) → Button tag (green)
-   - **Group of related elements** (card, list item) → Group outline (red)
-   - **Decorative icon/image** (no semantic meaning) → Ignore Area (gray)
+   - **Heading** -> H tag (purple)
+   - **Text content** -> Label tag (blue)
+   - **Interactive element** (button, link, toggle) -> Button tag (green)
+   - **Group of related elements** (card, list item) -> Group outline (red)
+   - **Decorative icon/image** (no semantic meaning) -> Ignore Area (gray)
 4. Write down the full list before proceeding
 
 **Decision tree for each element:**
 ```
 Is it interactive?
-  YES → Button tag. What is the action? (navigate, toggle, submit, open)
-  NO → continue
+  YES -> Button tag. What is the action? (navigate, toggle, submit, open)
+  NO -> continue
 
 Is it a heading or section title?
-  YES → H tag.
-  NO → continue
+  YES -> H tag.
+  NO -> continue
 
 Is it meaningful text content?
-  YES → Label tag. What would a screen reader announce?
-  NO → continue
+  YES -> Label tag. What would a screen reader announce?
+  NO -> continue
 
 Is it a group of related items?
-  YES → Group outline around all items in the group.
-  NO → continue
+  YES -> Group outline.
+  NO -> continue
 
 Is it purely decorative?
-  YES → Ignore Area overlay.
-  NO → skip (status bar, system UI)
+  YES -> Ignore Area overlay.
+  NO -> skip (status bar, system UI)
 ```
 
 ## Phase 2: Define Reading Order
@@ -61,80 +61,68 @@ Is it purely decorative?
 5. Status before action — read current state before the button that changes it
 6. Decorative = skip — order: 0 for Ignore/Group elements
 
-**Process:**
-1. Assign order 1 to the screen's main heading (H1)
-2. Assign order 2 to the first meaningful content element
-3. Continue numbering following the principles above
-4. Header actions (back, menu, help) come AFTER the main content they relate to
-5. Footer CTAs come last
-6. Groups and Ignore areas get order: 0 (no badge number)
-
 **Example for a Payment screen:**
 ```
-order 1  → H: "Payment"                    (title first)
-order 2  → Label: "Credit Card"             (section context)
-order 3  → Button: "All tools"              (header action, after context)
-order 4  → Label: "Card **** 4236"          (card 1 details)
-order 5  → Label: "Card **** 1357"          (card 2 details)
-order 6  → Button: "Scan"                   (header action)
-order 0  → Group: Card 1 outline            (no badge)
-order 0  → Group: Card 2 outline            (no badge)
-order 0  → Ignore: Status bar icons         (no badge)
+order 1  -> H: "Payment"                    (title first)
+order 2  -> Label: "Credit Card"             (section context)
+order 3  -> Button: "All tools"              (header action)
+order 4  -> Button: "Settings"               (header action)
+order 5  -> Label: "Card 1"                  (card details)
+order 6  -> Label: "Card 2"                  (card details)
+order 7  -> Button: "Add new card"           (section action)
+order 0  -> Ignore: Status bar icons         (no badge)
 ```
 
-## Phase 3: Plan Tag Placement
+## Phase 3: Generate JSON
 
-**Side distribution rules:**
+Using the analysis from Phases 1-2, produce a JSON object matching `schema/handoff-data.schema.json`.
 
-| Side | What goes here | Max before redistributing |
-|------|---------------|---------------------------|
-| direita (left of screen) | Labels, Headings | 4-5 tags |
-| esquerda (right of screen) | Buttons, overflow | 4-5 tags |
-| baixo (top of screen) | Header buttons | 2-3 tags |
-| cima (bottom of screen) | Footer CTAs | 2-3 tags |
+**Important:** There is NO `side` field in v2.1. All label cards appear on the right side automatically. You only need to provide:
+- `order` — reading sequence number (0 for Ignore/Group)
+- `componentName` — human-readable name
+- `tagType` — Button, Label, H, Group, or Ignore
+- `accessibilityName` — what the screen reader announces
+- `role` — ARIA role
+- `state` — optional, for Button tags only
 
-**Rules:**
-- Distribute across at least 2 sides
-- If one side exceeds 5 tags, move excess to opposite side
-- Related elements should be on the same side when possible
-
-## Phase 4: Generate JSON
-
-Using the analysis from Phases 1-3, produce a JSON object matching `schema/handoff-data.schema.json`.
-
-Fill in:
-- `screen.name` — the screen's human name
-- `screen.nodeId` — the Figma node ID to clone
-- `template.*` — metadata for the hand-off header
-- `annotations[]` — every tag with order, type, side, name, role, and optional state
-
-Validate your JSON against the schema before proceeding.
-
-## Phase 5: Execute Build Script
+## Phase 4: Execute Build Script
 
 1. Read `figma/build-handoff.js`
 2. Paste the script into `figma_execute`
 3. Call `buildHandoff(data)` with your JSON
-4. The script creates everything in Figma
-5. Take a screenshot to verify the result
+4. Save the returned `screenFrameId` and `annotationCount`
 
-**You do NOT create any visual elements.** The script handles all Figma construction.
+**You do NOT create any visual elements.** The script handles everything.
 
-## Recovery: What To Do When Something Breaks
+## Phase 5: Verify (MANDATORY)
 
-| Symptom | Fix |
-|---------|-----|
-| Text is clipped | Run `figma/repair-tag.js` — fixes HUG sizing |
-| Line doesn't reach component | Adjust root frame width in the script call |
-| Tags overlap | Increase stackGap or redistribute to another side |
-| Screen looks rebuilt | Always clone via nodeId, never create from scratch |
+1. Read `figma/verify-handoff.js`
+2. Paste the script into `figma_execute`
+3. Call `verifyHandoff(screenFrameId, annotationCount)`
+4. Post the FULL report to the user
+5. If any check is FAIL, diagnose and fix, then re-verify
+6. You may NOT say "done" until all checks PASS
+
+**You do not have permission to give subjective opinions.** Only the verify script decides.
+
+## Recovery: What To Do When Verification Fails
+
+| Failed Check | Fix |
+|-------------|-----|
+| Screen not cloned | Re-run with correct nodeId |
+| Lines found | You used the wrong build script version. Use v2.1 (no lines) |
+| No label cards | Build script did not execute properly. Re-run |
+| No badges on screen | Build script did not execute properly. Re-run |
+| Tag sizing not HUG | Run figma/repair-tag.js |
+| Text not auto-resize | Run figma/repair-tag.js |
+| Annotation count mismatch | Check your JSON has the right number of annotations |
 
 ## Quick Reference
 
 ```
-ANALYZE → What elements exist? What role does each play?
-ORDER   → What sequence makes sense for someone who can't see?
-PLAN    → Which side does each tag go? Distribute evenly.
-JSON    → Generate structured data matching the schema.
-BUILD   → Execute build-handoff.js. Screenshot. Verify. Done.
+ANALYZE  -> What elements exist? Classify each one.
+ORDER    -> What sequence makes sense for a screen reader user?
+JSON     -> Generate structured data matching the schema.
+BUILD    -> Execute build-handoff.js. Do not create anything manually.
+VERIFY   -> Execute verify-handoff.js. Post report. Fix if needed.
 ```
